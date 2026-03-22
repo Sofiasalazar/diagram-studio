@@ -68,6 +68,9 @@ export function PromptBar({ onGenerate, generating, apiKey, onApiKeyChange }: Pr
               {showKey ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
+          <p className="text-xs text-neutral-600 mt-1 pl-1">
+            Your key is saved only in this browser and sent directly to Anthropic — never to our servers.
+          </p>
         </div>
 
         {/* Prompt row */}
