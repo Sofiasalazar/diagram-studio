@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { Excalidraw } from '@excalidraw/excalidraw'
+import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
 import type { DiagramTab, DimensionPreset } from '../types'
@@ -13,9 +14,10 @@ interface Props {
     appState: Partial<AppState>,
     files: BinaryFiles
   ) => void
+  onApiReady?: (api: ExcalidrawImperativeAPI) => void
 }
 
-export function DiagramCanvas({ diagram, dimension, onUpdate }: Props) {
+export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Props) {
   const dim = DIMENSIONS[dimension]
 
   const handleChange = useCallback(
@@ -48,6 +50,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate }: Props) {
       >
         <Excalidraw
           key={diagram.id}
+          excalidrawAPI={onApiReady}
           initialData={{
             elements: diagram.elements as ExcalidrawElement[],
             appState: { ...diagram.appState, theme: 'dark' },

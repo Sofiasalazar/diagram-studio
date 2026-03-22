@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@excalidraw/excalidraw": "^0.18.0",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
