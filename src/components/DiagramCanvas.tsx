@@ -41,7 +41,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
 
       {/* canvas wrapper */}
       <div
-        className="relative bg-white rounded-lg overflow-hidden shadow-2xl shadow-black/60"
+        className="relative bg-neutral-950 rounded-lg overflow-hidden shadow-2xl shadow-black/60"
         style={
           dim.width && dim.height
             ? { width: dim.width, height: dim.height, minWidth: dim.width, minHeight: dim.height }
@@ -65,6 +65,14 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
             },
           }}
         />
+      </div>
+
+      {/* toolbar hints */}
+      <div className="shrink-0 flex items-center gap-4 text-xs text-neutral-600 px-1">
+        <span>
+          <span className="text-neutral-500 font-medium">Lock tool</span>
+          {' '}— the padlock icon in the toolbar keeps the current drawing tool active after each shape, so you don't switch back to the selection cursor automatically.
+        </span>
       </div>
     </div>
   )

@@ -34,14 +34,16 @@ export function Header({ activeDiagram, tabs, dimension, onDimensionChange }: Pr
     <header className="h-14 px-4 flex items-center gap-4 bg-neutral-950 border-b border-neutral-800 shrink-0">
       {/* logo */}
       <div className="flex items-center gap-2.5 mr-2">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="2" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
-            <rect x="9" y="2" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
-            <rect x="2" y="9" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
-            <path d="M11.5 9v6M8.5 12h6" stroke="#A3E635" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </div>
+        {/* Agenticsis robot logo */}
+        <svg width="28" height="28" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+          <rect x="0" y="0" width="512" height="512" rx="96" fill="#000000" />
+          <rect x="118" y="210" width="276" height="170" rx="40" fill="none" stroke="#FFFFFF" strokeWidth="32" />
+          <circle cx="208" cy="295" r="18" fill="#FFFFFF" />
+          <circle cx="304" cy="295" r="18" fill="#FFFFFF" />
+          <rect x="244" y="150" width="24" height="70" rx="12" fill="#FFFFFF" />
+          <circle cx="256" cy="130" r="38" fill="#FFFFFF" />
+          <circle cx="256" cy="130" r="18" fill="#000000" />
+        </svg>
         <span className="text-sm font-semibold text-white tracking-tight">Diagram Studio</span>
         <span className="text-neutral-600 text-xs">by Agenticsis</span>
       </div>
