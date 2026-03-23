@@ -17,6 +17,15 @@ interface Props {
   onApiReady?: (api: ExcalidrawImperativeAPI) => void
 }
 
+// Hide Excalidraw's empty-canvas welcome screen and the floating lock indicator
+const EXCALIDRAW_OVERRIDES = `
+  .excalidraw .welcome-screen-center,
+  .excalidraw .welcome-screen-center--viewport-canvas,
+  .excalidraw .App-welcome-screen-decor-top,
+  .excalidraw .App-welcome-screen-decor-bottom,
+  .welcome-screen-center { display: none !important; }
+`
+
 export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Props) {
   const dim = DIMENSIONS[dimension]
 
@@ -28,25 +37,29 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   )
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-start bg-neutral-900 overflow-auto p-4 gap-3">
+    <div className="flex-1 flex flex-col items-center justify-start overflow-auto p-4 gap-3"
+      style={{ background: '#111111' }}>
+      <style>{EXCALIDRAW_OVERRIDES}</style>
+
       {/* dimension badge */}
       {dim.width && (
-        <div className="shrink-0 flex items-center gap-2 text-xs text-neutral-500">
-          <div className="h-px w-8 bg-neutral-700" />
-          <span className="font-medium text-neutral-400">{dim.label}</span>
-          <span className="text-neutral-600">{dim.width} × {dim.height}</span>
-          <div className="h-px w-8 bg-neutral-700" />
+        <div className="shrink-0 flex items-center gap-2 text-xs" style={{ color: '#525252' }}>
+          <div className="h-px w-8" style={{ background: '#262626' }} />
+          <span className="font-medium" style={{ color: '#A3A3A3' }}>{dim.label}</span>
+          <span>{dim.width} × {dim.height}</span>
+          <div className="h-px w-8" style={{ background: '#262626' }} />
         </div>
       )}
 
       {/* canvas wrapper */}
       <div
-        className="relative bg-neutral-950 rounded-lg overflow-hidden shadow-2xl shadow-black/60"
-        style={
-          dim.width && dim.height
+        className="relative rounded-xl overflow-hidden"
+        style={{
+          ...(dim.width && dim.height
             ? { width: dim.width, height: dim.height, minWidth: dim.width, minHeight: dim.height }
-            : { width: '100%', height: '100%', flex: 1, minHeight: 0 }
-        }
+            : { width: '100%', height: '100%', flex: 1, minHeight: 0 }),
+          boxShadow: '0 0 0 1px #262626, 0 8px 40px rgba(0,0,0,0.6)',
+        }}
       >
         <Excalidraw
           key={diagram.id}
@@ -59,20 +72,11 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
           onChange={handleChange}
           theme="dark"
           UIOptions={{
-            canvasActions: {
-              export: false,
-              saveAsImage: false,
-            },
+            canvasActions: { export: false, saveAsImage: false },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            welcomeScreen: false as any,
           }}
         />
-      </div>
-
-      {/* toolbar hints */}
-      <div className="shrink-0 flex items-center gap-4 text-xs text-neutral-600 px-1">
-        <span>
-          <span className="text-neutral-500 font-medium">Lock tool</span>
-          {' '}— the padlock icon in the toolbar keeps the current drawing tool active after each shape, so you don't switch back to the selection cursor automatically.
-        </span>
       </div>
     </div>
   )

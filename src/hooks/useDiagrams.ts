@@ -27,6 +27,16 @@ export function useDiagrams() {
     setActiveId(d.id)
   }, [tabs.length])
 
+  const addDiagramWithContent = useCallback((
+    name: string,
+    elements: readonly ExcalidrawElement[]
+  ) => {
+    const d: DiagramTab = { id: nanoid(), name, elements, appState: { theme: 'dark' }, files: {} }
+    setTabs((prev) => [...prev, d])
+    setActiveId(d.id)
+    return d.id
+  }, [])
+
   const deleteDiagram = useCallback((id: string) => {
     setTabs((prev) => {
       if (prev.length === 1) return prev
@@ -67,6 +77,7 @@ export function useDiagrams() {
     setActiveId,
     setDimension,
     addDiagram,
+    addDiagramWithContent,
     deleteDiagram,
     renameDiagram,
     updateDiagram,
