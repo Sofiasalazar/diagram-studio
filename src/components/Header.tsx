@@ -31,11 +31,11 @@ export function Header({ activeDiagram, tabs, dimension, onDimensionChange }: Pr
   }
 
   return (
-    <header className="h-14 px-4 flex items-center gap-4 bg-neutral-950 border-b border-neutral-800 shrink-0">
-      {/* logo */}
+    <header className="h-14 px-4 flex items-center gap-4 shrink-0"
+      style={{ background: '#0A0A0A', borderBottom: '1px solid #262626' }}>
+      {/* logo + wordmark */}
       <div className="flex items-center gap-2.5 mr-2">
-        {/* Agenticsis robot logo */}
-        <svg width="28" height="28" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+        <svg width="26" height="26" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
           <rect x="0" y="0" width="512" height="512" rx="96" fill="#000000" />
           <rect x="118" y="210" width="276" height="170" rx="40" fill="none" stroke="#FFFFFF" strokeWidth="32" />
           <circle cx="208" cy="295" r="18" fill="#FFFFFF" />
@@ -44,8 +44,28 @@ export function Header({ activeDiagram, tabs, dimension, onDimensionChange }: Pr
           <circle cx="256" cy="130" r="38" fill="#FFFFFF" />
           <circle cx="256" cy="130" r="18" fill="#000000" />
         </svg>
-        <span className="text-sm font-semibold text-white tracking-tight">Diagram Studio</span>
-        <span className="text-neutral-600 text-xs">by Agenticsis</span>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-sm font-bold tracking-tight"
+            style={{
+              background: 'linear-gradient(90deg, #8b5cf6, #9333ea 50%, #84cc16)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            Diagram Studio
+          </span>
+          <span
+            className="text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full"
+            style={{
+              color: '#84cc16',
+              background: 'rgba(132,204,22,0.10)',
+              border: '1px solid rgba(132,204,22,0.30)',
+            }}
+          >
+            Free
+          </span>
+        </div>
       </div>
 
       {/* dimension picker */}
@@ -55,7 +75,7 @@ export function Header({ activeDiagram, tabs, dimension, onDimensionChange }: Pr
 
       {/* export buttons */}
       <div className="flex items-center gap-2">
-        <span className="text-xs text-neutral-600 mr-1">Export:</span>
+        <span className="text-xs mr-1" style={{ color: '#525252' }}>Export:</span>
 
         <ExportButton
           label="PNG"
@@ -73,16 +93,19 @@ export function Header({ activeDiagram, tabs, dimension, onDimensionChange }: Pr
           onClick={() => handle('json', () => Promise.resolve(downloadExcalidraw(params, slug)))}
         />
 
-        <div className="w-px h-5 bg-neutral-800 mx-1" />
+        <div className="w-px h-5 mx-1" style={{ background: '#262626' }} />
 
         <button
           onClick={() => handle('zip', () => downloadAllAsZip(tabs))}
           disabled={!!exporting}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-            bg-lime-500/10 text-lime-400 border border-lime-500/30
-            hover:bg-lime-500/20 hover:border-lime-500/60
-            disabled:opacity-40 disabled:cursor-not-allowed
-            transition-all duration-150"
+            disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
+          style={{
+            background: exporting ? undefined : '#84cc16',
+            color: '#000000',
+          }}
+          onMouseEnter={(e) => { if (!exporting) e.currentTarget.style.opacity = '0.9' }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
         >
           {exporting === 'zip' ? (
             <Spinner />
@@ -91,7 +114,7 @@ export function Header({ activeDiagram, tabs, dimension, onDimensionChange }: Pr
               <path d="M8 2v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           )}
-          Download All (ZIP)
+          Download All
         </button>
       </div>
     </header>
@@ -104,10 +127,19 @@ function ExportButton({ label, onClick, loading }: { label: string; onClick: () 
       onClick={onClick}
       disabled={loading}
       className="px-2.5 py-1.5 rounded-lg text-xs font-medium
-        text-neutral-400 border border-neutral-800
-        hover:text-white hover:border-neutral-600 hover:bg-neutral-800
         disabled:opacity-40 disabled:cursor-not-allowed
         transition-all duration-150 flex items-center gap-1"
+      style={{ color: '#A3A3A3', border: '1px solid #262626', background: 'transparent' }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.color = '#F5F5F5'
+        e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'
+        e.currentTarget.style.background = 'rgba(139,92,246,0.08)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = '#A3A3A3'
+        e.currentTarget.style.borderColor = '#262626'
+        e.currentTarget.style.background = 'transparent'
+      }}
     >
       {loading && <Spinner />}
       {label}

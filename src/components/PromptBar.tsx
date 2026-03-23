@@ -45,31 +45,35 @@ export function PromptBar({ onGenerate, generating, apiKey, onApiKeyChange }: Pr
   }
 
   return (
-    <div className="border-b border-neutral-800 bg-neutral-950 px-4 py-3">
+    <div className="px-4 py-3" style={{ background: '#0A0A0A', borderBottom: '1px solid #262626' }}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         {/* API key row */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-neutral-600 shrink-0">API Key</span>
-          <div className="flex-1 relative">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold tracking-wide shrink-0" style={{ color: '#525252' }}>API Key</span>
+          <div className="relative" style={{ width: 280 }}>
             <input
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => onApiKeyChange(e.target.value)}
               placeholder="sk-ant-..."
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-300
-                placeholder-neutral-600 outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600/30
-                transition-colors font-mono"
+              className="w-full px-3 py-1.5 rounded-xl text-xs font-mono outline-none transition-all duration-150"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #262626', color: '#F5F5F5' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#262626' }}
             />
             <button
               type="button"
               onClick={() => setShowKey((v) => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-neutral-400 transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors"
+              style={{ color: '#525252' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#A3A3A3' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#525252' }}
             >
               {showKey ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
-          <p className="text-xs text-neutral-400 mt-1 pl-1">
-            Your key is saved only in this browser and sent directly to Anthropic — never to our servers.
+          <p className="text-xs" style={{ color: '#525252' }}>
+            Stored only in your browser — sent directly to Anthropic, never to our servers.
           </p>
         </div>
 
@@ -83,9 +87,10 @@ export function PromptBar({ onGenerate, generating, apiKey, onApiKeyChange }: Pr
               onKeyDown={handleKeyDown}
               placeholder="Describe a diagram... (e.g. user login flowchart, API architecture, sales funnel)    Press Enter to generate"
               rows={1}
-              className="w-full resize-none bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-neutral-200
-                placeholder-neutral-600 outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600/30
-                transition-colors leading-relaxed"
+              className="w-full resize-none px-4 py-3 rounded-xl text-sm outline-none transition-all duration-150 leading-relaxed"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #262626', color: '#F5F5F5' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#262626' }}
             />
           </div>
 
@@ -93,10 +98,10 @@ export function PromptBar({ onGenerate, generating, apiKey, onApiKeyChange }: Pr
             type="submit"
             disabled={generating || !prompt.trim()}
             className="shrink-0 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold
-              bg-lime-500/10 text-lime-400 border border-lime-500/30
-              hover:bg-lime-500/20 hover:border-lime-500/60
-              disabled:opacity-40 disabled:cursor-not-allowed
-              transition-all duration-150"
+              disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
+            style={{ background: '#84cc16', color: '#000000' }}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.opacity = '0.9' }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
           >
             {generating ? (
               <>
@@ -113,7 +118,7 @@ export function PromptBar({ onGenerate, generating, apiKey, onApiKeyChange }: Pr
         </div>
 
         {error && (
-          <p className="text-xs text-red-400 px-1">{error}</p>
+          <p className="text-xs px-1" style={{ color: '#f87171' }}>{error}</p>
         )}
       </form>
     </div>

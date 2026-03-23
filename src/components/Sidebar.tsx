@@ -41,17 +41,26 @@ function DiagramItem({
   return (
     <div
       onClick={onSelect}
-      className={`
-        group flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150
-        ${isActive
-          ? 'bg-violet-700/20 border border-violet-700/40 text-white'
-          : 'border border-transparent text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
-        }
-      `}
+      className="group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+      style={isActive ? {
+        background: 'rgba(139,92,246,0.08)',
+        border: '1px solid rgba(139,92,246,0.4)',
+        color: '#F5F5F5',
+        boxShadow: '0 0 16px rgba(139,92,246,0.12)',
+      } : {
+        background: 'transparent',
+        border: '1px solid transparent',
+        color: '#A3A3A3',
+      }}
     >
       {/* diagram icon */}
-      <div className={`shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold
-        ${isActive ? 'bg-violet-700 text-white' : 'bg-neutral-800 text-neutral-500 group-hover:bg-neutral-700'}`}>
+      <div
+        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+        style={isActive
+          ? { background: 'rgba(139,92,246,0.20)', color: '#8b5cf6' }
+          : { background: 'rgba(255,255,255,0.04)', color: '#525252' }
+        }
+      >
         {tab.name.slice(0, 1).toUpperCase()}
       </div>
 
@@ -99,10 +108,11 @@ function DiagramItem({
 
 export function Sidebar({ tabs, activeId, onSelect, onAdd, onDelete, onRename }: Props) {
   return (
-    <aside className="w-60 shrink-0 bg-neutral-950 border-r border-neutral-800 flex flex-col h-full">
+    <aside className="w-60 shrink-0 flex flex-col h-full"
+      style={{ background: '#0A0A0A', borderRight: '1px solid #262626' }}>
       {/* header */}
-      <div className="px-4 py-4 border-b border-neutral-800">
-        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">Diagrams</p>
+      <div className="px-4 py-4" style={{ borderBottom: '1px solid #1a1a1a' }}>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#525252' }}>Diagrams</p>
       </div>
 
       {/* list */}
@@ -120,14 +130,16 @@ export function Sidebar({ tabs, activeId, onSelect, onAdd, onDelete, onRename }:
       </div>
 
       {/* new diagram */}
-      <div className="px-2 py-3 border-t border-neutral-800">
+      <div className="px-2 py-3" style={{ borderTop: '1px solid #1a1a1a' }}>
         <button
           onClick={onAdd}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium
-            text-lime-400 border border-lime-500/30 hover:bg-lime-500/10 hover:border-lime-500/60
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold
             transition-all duration-150"
+          style={{ background: '#84cc16', color: '#000000' }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9' }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
             <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
           New Diagram
