@@ -196,6 +196,7 @@ export default function App() {
             onAdd={addDiagram}
             onDelete={deleteDiagram}
             onRename={renameDiagram}
+            onClose={() => setSidebarOpen(false)}
           />
         )}
 

@@ -21,13 +21,15 @@ html, body, #root {
   height: 100% !important;
 }
 
-/* Hide Excalidraw welcome screen completely */
-.excalidraw .welcome-screen-center,
-.excalidraw .welcome-screen-decor,
-.excalidraw .welcome-screen-decor-hint,
-.excalidraw .welcome-screen-decor-hint--toolbar,
-.excalidraw .welcome-screen-decor-hint--menu,
-.excalidraw .welcome-screen-decor-hint--help,
-.excalidraw .welcome-screen-menu {
+/* Hide Excalidraw welcome screen completely.
+   :root prefix raises specificity to (0,3,0) so our !important beats Excalidraw's
+   vendor CSS regardless of bundle order. */
+:root .excalidraw .welcome-screen-center,
+:root .excalidraw .welcome-screen-decor,
+:root .excalidraw .welcome-screen-decor-hint,
+:root .excalidraw .welcome-screen-decor-hint--toolbar,
+:root .excalidraw .welcome-screen-decor-hint--menu,
+:root .excalidraw .welcome-screen-decor-hint--help,
+:root .excalidraw .welcome-screen-menu {
   display: none !important;
 }

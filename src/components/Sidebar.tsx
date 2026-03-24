@@ -8,6 +8,7 @@ interface Props {
   onAdd: () => void
   onDelete: (id: string) => void
   onRename: (id: string, name: string) => void
+  onClose: () => void
 }
 
 function DiagramItem({
@@ -106,13 +107,25 @@ function DiagramItem({
   )
 }
 
-export function Sidebar({ tabs, activeId, onSelect, onAdd, onDelete, onRename }: Props) {
+export function Sidebar({ tabs, activeId, onSelect, onAdd, onDelete, onRename, onClose }: Props) {
   return (
-    <aside className="w-60 shrink-0 flex flex-col h-full"
+    <aside className="w-60 max-w-[55vw] shrink-0 flex flex-col h-full"
       style={{ background: '#0A0A0A', borderRight: '1px solid #262626' }}>
       {/* header */}
-      <div className="px-4 py-4" style={{ borderBottom: '1px solid #1a1a1a' }}>
+      <div className="px-4 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1a1a1a' }}>
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#525252' }}>Diagrams</p>
+        <button
+          onClick={onClose}
+          className="p-1 rounded transition-colors"
+          style={{ color: '#525252' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#A3A3A3' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#525252' }}
+          title="Close sidebar"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
       </div>
 
       {/* list */}
