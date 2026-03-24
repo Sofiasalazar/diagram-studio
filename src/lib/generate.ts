@@ -130,7 +130,7 @@ function robustParse(raw: string): unknown {
 }
 
 function freshIds(elements: object[]): object[] {
-  return elements.map((el) => ({ ...(el as object), id: nanoid(8), updated: Date.now() }))
+  return elements.map((el) => ({ ...(el as object), id: nanoid(8), updated: Date.now(), locked: false }))
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
