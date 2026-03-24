@@ -20,7 +20,7 @@ export default function App() {
   const [generating, setGenerating] = useState(false)
   const [seriesProgress, setSeriesProgress] = useState<{ current: number; total: number; title: string } | null>(null)
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('anthropic_api_key') ?? '')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
   const [presentMode, setPresentMode] = useState(false)
 
   function handleApiKeyChange(key: string) {

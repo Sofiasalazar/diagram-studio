@@ -1,34 +1,10 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { Excalidraw } from '@excalidraw/excalidraw'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
 import type { DiagramTab, DimensionPreset } from '../types'
 import { DIMENSIONS } from '../types'
-
-// Excalidraw forces showWelcomeScreen back to true in componentDidUpdate
-// whenever elements are empty — so appState and updateScene both fail.
-// The only fix is CSS, but Excalidraw's styles load after ours and win.
-// Solution: inject a <style> tag dynamically at the END of <head> so it
-// appears after all other styles and wins the cascade.
-function useHideWelcomeScreen() {
-  useEffect(() => {
-    const id = 'excalidraw-no-welcome'
-    if (document.getElementById(id)) return
-    const style = document.createElement('style')
-    style.id = id
-    style.textContent = `
-      .excalidraw .welcome-screen-center,
-      .excalidraw .welcome-screen-menu,
-      .excalidraw .welcome-screen-decor,
-      .excalidraw .welcome-screen-decor-hint,
-      .excalidraw .welcome-screen-decor-hint--toolbar,
-      .excalidraw .welcome-screen-decor-hint--menu,
-      .excalidraw .welcome-screen-decor-hint--help { display: none !important; }
-    `
-    document.head.appendChild(style)
-  }, [])
-}
 
 interface Props {
   diagram: DiagramTab
@@ -43,7 +19,6 @@ interface Props {
 
 export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Props) {
   const dim = DIMENSIONS[dimension]
-  useHideWelcomeScreen()
 
   const handleChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
@@ -51,6 +26,24 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
     },
     [onUpdate]
   )
+
+  // Excalidraw only renders the welcome-screen (lock icon) when:
+  //   activeTool.type === "selection" AND canvas is empty
+  // Starting in "hand" (pan) mode on empty canvases prevents it entirely.
+  // Once elements exist the condition is false and the tool can be anything.
+  const isEmpty = diagram.elements.length === 0
+  const initialAppState = {
+    ...diagram.appState,
+    theme: 'dark' as const,
+    ...(isEmpty && {
+      activeTool: {
+        type: 'hand' as const,
+        customType: null,
+        locked: false,
+        lastActiveTool: null,
+      },
+    }),
+  }
 
   return (
     <div className="flex-1 flex flex-col items-center justify-start overflow-auto p-4 gap-3"
@@ -81,7 +74,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
           excalidrawAPI={onApiReady}
           initialData={{
             elements: diagram.elements as ExcalidrawElement[],
-            appState: { ...diagram.appState, theme: 'dark' },
+            appState: initialAppState,
             files: diagram.files,
           }}
           onChange={handleChange}
