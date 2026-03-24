@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { Excalidraw } from '@excalidraw/excalidraw'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
@@ -19,6 +19,24 @@ interface Props {
 
 export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Props) {
   const dim = DIMENSIONS[dimension]
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // CSS cannot reliably hide Excalidraw's welcome screen because Excalidraw's
+  // vendor CSS may load after ours in Vite's bundle. Use a MutationObserver to
+  // directly set display:none via inline style (which always wins over CSS).
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    function hide() {
+      container!.querySelectorAll<HTMLElement>(
+        '.welcome-screen-center, .welcome-screen-decor, .welcome-screen-menu, [class*="welcome-screen"]'
+      ).forEach((el) => { el.style.display = 'none' })
+    }
+    hide()
+    const observer = new MutationObserver(hide)
+    observer.observe(container, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
 
   const handleChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
@@ -46,7 +64,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-start overflow-auto p-4 gap-3"
+    <div ref={containerRef} className="flex-1 flex flex-col items-center justify-start overflow-auto p-4 gap-3"
       style={{ background: '#111111' }}>
 
       {/* dimension badge */}
