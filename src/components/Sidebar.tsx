@@ -109,7 +109,7 @@ function DiagramItem({
 
 export function Sidebar({ tabs, activeId, onSelect, onAdd, onDelete, onRename, onClose }: Props) {
   return (
-    <aside className="w-60 max-w-[55vw] shrink-0 flex flex-col h-full"
+    <aside className="w-48 max-w-[50vw] shrink-0 flex flex-col h-full"
       style={{ background: '#0A0A0A', borderRight: '1px solid #262626' }}>
       {/* header */}
       <div className="px-4 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1a1a1a' }}>
@@ -142,8 +142,23 @@ export function Sidebar({ tabs, activeId, onSelect, onAdd, onDelete, onRename, o
         ))}
       </div>
 
+      {/* CTA */}
+      <div className="px-3 py-3" style={{ borderTop: '1px solid #1a1a1a' }}>
+        <p className="text-[10px] leading-relaxed" style={{ color: '#525252' }}>
+          Want this tool for your brand?{' '}
+          <a
+            href="mailto:info@agenticsis.top"
+            className="font-medium"
+            style={{ color: '#8b5cf6' }}
+          >
+            info@agenticsis.top
+          </a>
+          {' '}— we build AI-powered tools for your business.
+        </p>
+      </div>
+
       {/* new diagram */}
-      <div className="px-2 py-3" style={{ borderTop: '1px solid #1a1a1a' }}>
+      <div className="px-2 pb-3" style={{ paddingTop: 0 }}>
         <button
           onClick={onAdd}
           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold

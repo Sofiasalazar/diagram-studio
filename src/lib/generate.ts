@@ -138,21 +138,34 @@ function freshIds(elements: object[]): object[] {
 export async function generateDiagram(prompt: string, apiKey: string): Promise<object[]> {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
 
-  const response = await client.messages.create({
-    model: 'claude-opus-4-6',
-    max_tokens: 8192,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: prompt }],
-  })
+  let response
+  try {
+    response = await client.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 8192,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: prompt }],
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`API error: ${msg}`)
+  }
 
   const text = response.content.find((b) => b.type === 'text')?.text ?? '[]'
   const parsed = robustParse(text)
 
-  if (!Array.isArray(parsed)) {
+  // Model sometimes returns {elements:[...]} instead of bare [...] — handle both
+  const rawEls = Array.isArray(parsed)
+    ? (parsed as object[])
+    : Array.isArray((parsed as Record<string, unknown>)?.elements)
+      ? ((parsed as Record<string, unknown>).elements as object[])
+      : null
+
+  if (!rawEls) {
     throw new Error('Could not parse the diagram response. Please try rephrasing your prompt.')
   }
 
-  return freshIds(parsed as object[])
+  return freshIds(rawEls)
 }
 
 // ─── Series generation ────────────────────────────────────────────────────────

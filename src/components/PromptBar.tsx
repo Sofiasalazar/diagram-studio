@@ -80,8 +80,8 @@ export function PromptBar({
               {showKey ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
-          <p className="text-xs hidden sm:block" style={{ color: '#525252' }}>
-            Stored in your browser only — sent directly to Anthropic, never to our servers.
+          <p className="text-xs hidden sm:block" style={{ color: '#A3A3A3' }}>
+            Anthropic API key only (sk-ant-...) — stored in your browser, sent directly to Anthropic.
           </p>
         </div>
 
