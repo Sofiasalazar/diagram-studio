@@ -1,10 +1,34 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Excalidraw } from '@excalidraw/excalidraw'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
 import type { DiagramTab, DimensionPreset } from '../types'
 import { DIMENSIONS } from '../types'
+
+// Excalidraw forces showWelcomeScreen back to true in componentDidUpdate
+// whenever elements are empty — so appState and updateScene both fail.
+// The only fix is CSS, but Excalidraw's styles load after ours and win.
+// Solution: inject a <style> tag dynamically at the END of <head> so it
+// appears after all other styles and wins the cascade.
+function useHideWelcomeScreen() {
+  useEffect(() => {
+    const id = 'excalidraw-no-welcome'
+    if (document.getElementById(id)) return
+    const style = document.createElement('style')
+    style.id = id
+    style.textContent = `
+      .excalidraw .welcome-screen-center,
+      .excalidraw .welcome-screen-menu,
+      .excalidraw .welcome-screen-decor,
+      .excalidraw .welcome-screen-decor-hint,
+      .excalidraw .welcome-screen-decor-hint--toolbar,
+      .excalidraw .welcome-screen-decor-hint--menu,
+      .excalidraw .welcome-screen-decor-hint--help { display: none !important; }
+    `
+    document.head.appendChild(style)
+  }, [])
+}
 
 interface Props {
   diagram: DiagramTab
@@ -19,17 +43,7 @@ interface Props {
 
 export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Props) {
   const dim = DIMENSIONS[dimension]
-  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
-
-  const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
-    apiRef.current = api
-    onApiReady?.(api)
-    // Force-dismiss the welcome screen after mount regardless of internal state
-    requestAnimationFrame(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      api.updateScene({ appState: { showWelcomeScreen: false } as any })
-    })
-  }, [onApiReady])
+  useHideWelcomeScreen()
 
   const handleChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
@@ -64,10 +78,10 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
       >
         <Excalidraw
           key={diagram.id}
-          excalidrawAPI={handleApiReady}
+          excalidrawAPI={onApiReady}
           initialData={{
             elements: diagram.elements as ExcalidrawElement[],
-            appState: { ...diagram.appState, theme: 'dark', showWelcomeScreen: false },
+            appState: { ...diagram.appState, theme: 'dark' },
             files: diagram.files,
           }}
           onChange={handleChange}
