@@ -17,14 +17,6 @@ interface Props {
   onApiReady?: (api: ExcalidrawImperativeAPI) => void
 }
 
-// Hide Excalidraw's empty-canvas welcome screen and the floating lock indicator
-const EXCALIDRAW_OVERRIDES = `
-  .excalidraw .welcome-screen-center,
-  .excalidraw .welcome-screen-center--viewport-canvas,
-  .excalidraw .App-welcome-screen-decor-top,
-  .excalidraw .App-welcome-screen-decor-bottom,
-  .welcome-screen-center { display: none !important; }
-`
 
 export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Props) {
   const dim = DIMENSIONS[dimension]
@@ -39,7 +31,6 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   return (
     <div className="flex-1 flex flex-col items-center justify-start overflow-auto p-4 gap-3"
       style={{ background: '#111111' }}>
-      <style>{EXCALIDRAW_OVERRIDES}</style>
 
       {/* dimension badge */}
       {dim.width && (
@@ -66,15 +57,13 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
           excalidrawAPI={onApiReady}
           initialData={{
             elements: diagram.elements as ExcalidrawElement[],
-            appState: { ...diagram.appState, theme: 'dark' },
+            appState: { ...diagram.appState, theme: 'dark', showWelcomeScreen: false },
             files: diagram.files,
           }}
           onChange={handleChange}
           theme="dark"
           UIOptions={{
             canvasActions: { export: false, saveAsImage: false },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            welcomeScreen: false as any,
           }}
         />
       </div>
