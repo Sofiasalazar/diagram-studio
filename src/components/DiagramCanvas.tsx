@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { Excalidraw } from '@excalidraw/excalidraw'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
@@ -17,9 +17,19 @@ interface Props {
   onApiReady?: (api: ExcalidrawImperativeAPI) => void
 }
 
-
 export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Props) {
   const dim = DIMENSIONS[dimension]
+  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
+
+  const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
+    apiRef.current = api
+    onApiReady?.(api)
+    // Force-dismiss the welcome screen after mount regardless of internal state
+    requestAnimationFrame(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      api.updateScene({ appState: { showWelcomeScreen: false } as any })
+    })
+  }, [onApiReady])
 
   const handleChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
@@ -54,7 +64,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
       >
         <Excalidraw
           key={diagram.id}
-          excalidrawAPI={onApiReady}
+          excalidrawAPI={handleApiReady}
           initialData={{
             elements: diagram.elements as ExcalidrawElement[],
             appState: { ...diagram.appState, theme: 'dark', showWelcomeScreen: false },
