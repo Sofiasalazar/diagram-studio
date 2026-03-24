@@ -22,12 +22,12 @@ html, body, #root {
 }
 
 /* Hide Excalidraw welcome screen completely */
-.welcome-screen-center,
-.welcome-screen-decor,
-.welcome-screen-decor--help,
-.welcome-screen-decor--menu,
-.welcome-screen-decor-hint,
-.welcome-screen-decor-hint--toolbar,
-.welcome-screen-menu {
+.excalidraw .welcome-screen-center,
+.excalidraw .welcome-screen-decor,
+.excalidraw .welcome-screen-decor-hint,
+.excalidraw .welcome-screen-decor-hint--toolbar,
+.excalidraw .welcome-screen-decor-hint--menu,
+.excalidraw .welcome-screen-decor-hint--help,
+.excalidraw .welcome-screen-menu {
   display: none !important;
 }
