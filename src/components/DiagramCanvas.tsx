@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { Excalidraw } from '@excalidraw/excalidraw'
+import { Excalidraw, WelcomeScreen } from '@excalidraw/excalidraw'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
@@ -65,7 +65,10 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
           UIOptions={{
             canvasActions: { export: false, saveAsImage: false },
           }}
-        />
+        >
+          {/* Empty WelcomeScreen overrides Excalidraw's built-in default (which shows lock hint + checkboxes) */}
+          <WelcomeScreen />
+        </Excalidraw>
       </div>
     </div>
   )
