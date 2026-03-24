@@ -11,7 +11,9 @@ const JSON_RULES = `CRITICAL FORMATTING RULES:
 - Never use undefined, NaN, or Infinity — use null or 0 instead.
 - Produce valid RFC 8259 JSON only.`
 
-const ELEMENT_SPEC = `Required fields for EVERY element:
+const ELEMENT_SPEC = `IMPORTANT: Generate between 6 and 10 elements total. Never exceed 10. Keep all text values short (max 25 characters per string).
+
+Required fields for EVERY element:
 - id: unique 6-char alphanumeric string
 - type: "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "text" | "freedraw"
 - x, y: position numbers

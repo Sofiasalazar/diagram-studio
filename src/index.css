@@ -22,14 +22,21 @@ html, body, #root {
 }
 
 /* Hide Excalidraw welcome screen completely.
-   :root prefix raises specificity to (0,3,0) so our !important beats Excalidraw's
-   vendor CSS regardless of bundle order. */
+   Target the outer .welcome-screen wrapper so all descendants are hidden in one rule.
+   Also list children explicitly as a fallback in case the wrapper isn't matched. */
+:root .excalidraw .welcome-screen,
 :root .excalidraw .welcome-screen-center,
+:root .excalidraw .welcome-screen-center__heading,
+:root .excalidraw .welcome-screen-center__logo,
 :root .excalidraw .welcome-screen-decor,
+:root .excalidraw .welcome-screen-decor--help,
+:root .excalidraw .welcome-screen-decor--menu,
 :root .excalidraw .welcome-screen-decor-hint,
 :root .excalidraw .welcome-screen-decor-hint--toolbar,
 :root .excalidraw .welcome-screen-decor-hint--menu,
 :root .excalidraw .welcome-screen-decor-hint--help,
-:root .excalidraw .welcome-screen-menu {
+:root .excalidraw .welcome-screen-decor-hint__label,
+:root .excalidraw .welcome-screen-menu,
+:root .excalidraw .welcome-screen-menu-item {
   display: none !important;
 }
