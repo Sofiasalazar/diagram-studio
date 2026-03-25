@@ -29,12 +29,12 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
     if (!container) return
     function hide() {
       container!.querySelectorAll<HTMLElement>(
-        '.welcome-screen-center, .welcome-screen-decor, .welcome-screen-menu, [class*="welcome-screen"]'
+        '.welcome-screen, [class*="welcome-screen"]'
       ).forEach((el) => { el.style.display = 'none' })
     }
     hide()
     const observer = new MutationObserver(hide)
-    observer.observe(container, { childList: true, subtree: true })
+    observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] })
     return () => observer.disconnect()
   }, [])
 

@@ -47,6 +47,7 @@ export default function App() {
       const merged = [...current, ...(newElements as ExcalidrawElement[])]
       updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
       excalidrawApiRef.current?.updateScene({ elements: merged })
+      excalidrawApiRef.current?.scrollToContent(undefined, { fitToContent: true, animate: true })
     } finally {
       setGenerating(false)
     }

@@ -43,7 +43,7 @@ export function Header({
         className="p-1.5 rounded-lg transition-colors shrink-0"
         style={{ color: sidebarOpen ? '#8b5cf6' : '#A3A3A3' }}
         onMouseEnter={(e) => { e.currentTarget.style.color = '#8b5cf6'; e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = sidebarOpen ? '#8b5cf6' : '#525252'; e.currentTarget.style.background = 'transparent' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = sidebarOpen ? '#8b5cf6' : '#A3A3A3'; e.currentTarget.style.background = 'transparent' }}
       >
         <SidebarIcon />
       </button>
