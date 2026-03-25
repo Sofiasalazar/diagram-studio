@@ -21,15 +21,26 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   const dim = DIMENSIONS[dimension]
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // CSS cannot reliably hide Excalidraw's welcome screen because Excalidraw's
-  // vendor CSS may load after ours in Vite's bundle. Use a MutationObserver to
-  // directly set display:none via inline style (which always wins over CSS).
+  // Internal API ref — owned by this component for reliable sync
+  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
+
+  // Flag: true when the last elements change came from user drawing (onChange),
+  // false when it came from an external source (AI generation via props).
+  const isInternalChangeRef = useRef(false)
+
+  // Track the last elements array reference to detect external updates
+  const prevElementsRef = useRef(diagram.elements)
+
+  // MutationObserver: hide Excalidraw's toolbar, bottom bar, and welcome screen
+  // via inline style (wins over CSS specificity battles in Vite bundles)
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
     function hide() {
       container!.querySelectorAll<HTMLElement>(
-        '.welcome-screen, [class*="welcome-screen"]'
+        '.welcome-screen, [class*="welcome-screen"], ' +
+        '.App-toolbar, .App-toolbar-content, .App-toolbar-container, ' +
+        '.shapes-section, .App-bottom-bar'
       ).forEach((el) => { el.style.display = 'none' })
     }
     hide()
@@ -38,29 +49,52 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
     return () => observer.disconnect()
   }, [])
 
+  // Sync externally-changed elements (from AI generation) into the Excalidraw canvas
+  useEffect(() => {
+    const prev = prevElementsRef.current
+    prevElementsRef.current = diagram.elements
+
+    if (isInternalChangeRef.current) {
+      // This change originated from the user drawing on canvas — canvas already
+      // has these elements via Excalidraw's own state; skip to avoid loops.
+      isInternalChangeRef.current = false
+      return
+    }
+
+    if (diagram.elements !== prev && apiRef.current && diagram.elements.length > 0) {
+      // External change (AI generation): push elements into the canvas and fit view
+      apiRef.current.updateScene({ elements: diagram.elements as ExcalidrawElement[] })
+      setTimeout(() => {
+        apiRef.current?.scrollToContent(undefined, { fitToContent: true, animate: true })
+      }, 120)
+    }
+  }, [diagram.elements])
+
+  const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
+    apiRef.current = api
+    onApiReady?.(api)
+  }, [onApiReady])
+
   const handleChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
+      // Mark this as an internal (user-drawn) change before updating state
+      isInternalChangeRef.current = true
       onUpdate(elements, appState, files)
     },
     [onUpdate]
   )
 
-  // Excalidraw only renders the welcome-screen (lock icon) when:
-  //   activeTool.type === "selection" AND canvas is empty
-  // Starting in "hand" (pan) mode on empty canvases prevents it entirely.
-  // Once elements exist the condition is false and the tool can be anything.
-  const isEmpty = diagram.elements.length === 0
   const initialAppState = {
     ...diagram.appState,
     theme: 'dark' as const,
-    ...(isEmpty && {
-      activeTool: {
-        type: 'hand' as const,
-        customType: null,
-        locked: false,
-        lastActiveTool: null,
-      },
-    }),
+    // Always start in hand/pan mode — prevents welcome screen lock icon
+    // and gives a cleaner initial experience without the shape toolbar
+    activeTool: {
+      type: 'hand' as const,
+      customType: null,
+      locked: false,
+      lastActiveTool: null,
+    },
   }
 
   return (
@@ -89,7 +123,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
       >
         <Excalidraw
           key={diagram.id}
-          excalidrawAPI={onApiReady}
+          excalidrawAPI={handleApiReady}
           initialData={{
             elements: diagram.elements as ExcalidrawElement[],
             appState: initialAppState,
@@ -98,9 +132,26 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
           onChange={handleChange}
           theme="dark"
           UIOptions={{
-            canvasActions: { export: false, saveAsImage: false },
+            canvasActions: { export: false, saveAsImage: false, clearCanvas: false },
           }}
         />
+        {/* Custom empty-state overlay — sits on top of the Excalidraw canvas illustration */}
+        {diagram.elements.length === 0 && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
+            style={{ background: '#111111' }}
+          >
+            <div className="flex flex-col items-center gap-3 opacity-50">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <rect x="4" y="10" width="32" height="20" rx="4" stroke="#8b5cf6" strokeWidth="1.5"/>
+                <path d="M12 20h16M20 14v12" stroke="#84cc16" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <p className="text-sm font-medium" style={{ color: '#525252' }}>
+                Type a prompt above to generate your diagram
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

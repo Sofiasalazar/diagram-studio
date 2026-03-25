@@ -11,24 +11,34 @@ const JSON_RULES = `CRITICAL FORMATTING RULES:
 - Never use undefined, NaN, or Infinity — use null or 0 instead.
 - Produce valid RFC 8259 JSON only.`
 
-const ELEMENT_SPEC = `IMPORTANT: Generate between 6 and 10 elements total. Never exceed 10. Keep all text values short (max 25 characters per string).
+const ELEMENT_SPEC = `IMPORTANT: Generate between 15 and 25 elements total. Create a RICH, DETAILED diagram with shapes, labels, connecting arrows, and section titles. Text values up to 60 characters.
+
+COLOR PALETTE — use these for backgroundColor to create visual zones:
+- Headers/titles: "#1e1b4b" (dark indigo) with strokeColor "#4f46e5"
+- Primary boxes: "#ede9fe" with strokeColor "#7c3aed"
+- Secondary boxes: "#f0fdf4" with strokeColor "#16a34a"
+- Accent boxes: "#fff7ed" with strokeColor "#ea580c"
+- Neutral/gray boxes: "#1c1917" with strokeColor "#44403c"
+- Decision diamonds: "#fefce8" with strokeColor "#ca8a04"
+- Arrows/lines: strokeColor "#6b7280", backgroundColor "transparent"
+- Text-only elements: backgroundColor "transparent", strokeColor "transparent"
 
 Required fields for EVERY element:
-- id: unique 6-char alphanumeric string
-- type: "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "text" | "freedraw"
-- x, y: position numbers
-- width, height: size numbers
+- id: unique 8-char alphanumeric string
+- type: "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "text"
+- x, y: position numbers (integers)
+- width, height: size numbers (integers)
 - angle: 0
-- strokeColor: "#1e1e1e"
-- backgroundColor: "transparent" or a hex color like "#e8f4fd"
-- fillStyle: "hachure" | "solid" | "cross-hatch"
+- strokeColor: a hex color string
+- backgroundColor: "transparent" or a hex color
+- fillStyle: "solid"
 - strokeWidth: 2
-- strokeStyle: "solid" | "dashed" | "dotted"
-- roughness: 1
+- strokeStyle: "solid" | "dashed"
+- roughness: 0
 - opacity: 100
 - groupIds: []
 - frameId: null
-- roundness: null  (or {"type": 3} for rounded rectangles)
+- roundness: null (or {"type": 3} for rounded rectangles/ellipses)
 - boundElements: []
 - updated: 1
 - link: null
@@ -36,7 +46,7 @@ Required fields for EVERY element:
 
 For "text" elements, also add:
 - text: "the string"
-- fontSize: 20
+- fontSize: 16 (use 20 for titles, 14 for small labels)
 - fontFamily: 1
 - textAlign: "center"
 - verticalAlign: "middle"
@@ -45,37 +55,54 @@ For "text" elements, also add:
 - lineHeight: 1.25
 
 For "arrow" or "line" elements, also add:
-- points: [[0,0],[100,0]]
+- points: [[0,0],[dx,dy]] where dx/dy describe the direction and length
 - lastCommittedPoint: null
 - startBinding: null
 - endBinding: null
 - startArrowhead: null
 - endArrowhead: "arrow" (for arrows) or null (for lines)
 
-Layout tips:
-- Start at x:100, y:100. Leave 40-60px spacing between elements.
-- Rectangles: 160x60 for boxes, 120x60 for small boxes.
-- Flowcharts: top-to-bottom with arrows. Mind maps: radiate from center.
-- Text elements should be slightly inside their container boxes.
-- Use backgroundColor on shapes for visual clarity.`
+LAYOUT STRATEGY — adapt to diagram type:
+- Flowcharts: top-to-bottom, nodes every 120px vertically. Start at x:200, y:80.
+- Architecture: layered zones, each zone a large background rectangle + inner boxes. x:50 to x:1100.
+- ERD/Schema: left-to-right tables, each table column 220px wide. Relationships as horizontal arrows.
+- Mind map: center hub ellipse at x:550,y:400, branches radiate out 250px in all directions.
+- Timeline: horizontal, milestones every 200px along y:300. Start at x:80.
+- Org chart: top-down hierarchy, each level 120px below previous, siblings 200px apart.
+
+COMPOSITION RULES:
+- Add a title text element at the top (fontSize:24, y:20).
+- Use large background rectangles (low opacity look: fillStyle "solid") to group related items into zones.
+- Connect all process steps with arrow elements.
+- Add short label text elements INSIDE or NEXT to every shape.
+- Use color coding consistently — same color = same logical group.
+- Minimum 5 arrows for any flow diagram. Minimum 3 zones/groups for architecture.`
 
 // ─── System prompts ───────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are an expert Excalidraw diagram creator.
+const SYSTEM_PROMPT = `You are an expert Excalidraw diagram creator. Your diagrams are professional, richly detailed, and visually clear.
+
+Think step by step:
+1. Identify the diagram type from the prompt (flowchart, architecture, ERD, mind map, timeline, org chart, etc.)
+2. Plan the layout and color zones
+3. List all elements needed (shapes, labels, arrows, section titles)
+4. Output the JSON array
+
 Respond with ONLY a valid JSON array of Excalidraw elements. Start with [ and end with ].
 
 ${JSON_RULES}
 
 ${ELEMENT_SPEC}`
 
-const SLIDE_SYSTEM_PROMPT = `You are creating one slide in a series of Excalidraw diagrams.
-Respond with ONLY a JSON object: {"title":"Short title","elements":[...]}
+const SLIDE_SYSTEM_PROMPT = `You are creating one slide in a series of Excalidraw diagrams. Each slide is professional, colorful, and easy to read.
+
+Respond with ONLY a JSON object: {"title":"Short title (2-5 words)","elements":[...]}
 
 ${JSON_RULES}
 
 ${ELEMENT_SPEC}
 
-Keep each slide SIMPLE: 4-8 elements max. One clear idea per slide.`
+For slides: 8-12 elements per slide. One clear concept per slide. Use a large title text element at top (fontSize:22). Use color zones to visually separate sections.`
 
 // ─── JSON repair helpers ──────────────────────────────────────────────────────
 
@@ -137,7 +164,22 @@ function freshIds(elements: object[]): object[] {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export async function generateDiagram(prompt: string, apiKey: string): Promise<object[]> {
+export interface GenerateUsage {
+  input_tokens: number
+  output_tokens: number
+}
+
+export interface DiagramResult {
+  elements: object[]
+  usage: GenerateUsage
+}
+
+export interface SeriesResult {
+  slides: SlideResult[]
+  usage: GenerateUsage
+}
+
+export async function generateDiagram(prompt: string, apiKey: string): Promise<DiagramResult> {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
 
   let response
@@ -167,7 +209,13 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<o
     throw new Error('Could not parse the diagram response. Please try rephrasing your prompt.')
   }
 
-  return freshIds(rawEls)
+  return {
+    elements: freshIds(rawEls),
+    usage: {
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+    },
+  }
 }
 
 // ─── Series generation ────────────────────────────────────────────────────────
@@ -182,13 +230,14 @@ export async function generateSeries(
   count: number,
   apiKey: string,
   onProgress?: (current: number, total: number, title: string) => void
-): Promise<SlideResult[]> {
+): Promise<SeriesResult> {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
-  const results: SlideResult[] = []
+  const slides: SlideResult[] = []
+  const totalUsage: GenerateUsage = { input_tokens: 0, output_tokens: 0 }
 
   for (let i = 0; i < count; i++) {
-    const prevContext = results.length > 0
-      ? `\nPrevious slides: ${results.map((r, j) => `Slide ${j + 1}: "${r.title}"`).join(', ')}. Continue the narrative naturally.`
+    const prevContext = slides.length > 0
+      ? `\nPrevious slides: ${slides.map((r, j) => `Slide ${j + 1}: "${r.title}"`).join(', ')}. Continue the narrative naturally.`
       : '\nThis is the opening slide — provide an overview.'
 
     const userMsg =
@@ -198,10 +247,13 @@ Respond ONLY with: {"title":"Short title (2-5 words)","elements":[...]}`
 
     const response = await client.messages.create({
       model: 'claude-opus-4-6',
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: SLIDE_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMsg }],
     })
+
+    totalUsage.input_tokens += response.usage.input_tokens
+    totalUsage.output_tokens += response.usage.output_tokens
 
     const text = response.content.find((b) => b.type === 'text')?.text ?? '{}'
     const parsed = robustParse(text) as { title?: string; elements?: object[] } | null
@@ -212,8 +264,8 @@ Respond ONLY with: {"title":"Short title (2-5 words)","elements":[...]}`
     const elements = freshIds(rawEls as object[])
 
     onProgress?.(i + 1, count, title)
-    results.push({ title, elements })
+    slides.push({ title, elements })
   }
 
-  return results
+  return { slides, usage: totalUsage }
 }

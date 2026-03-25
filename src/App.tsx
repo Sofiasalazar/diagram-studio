@@ -5,6 +5,7 @@ import { DiagramCanvas } from './components/DiagramCanvas'
 import { PromptBar } from './components/PromptBar'
 import { useDiagrams } from './hooks/useDiagrams'
 import { generateDiagram, generateSeries } from './lib/generate'
+import type { GenerateUsage } from './lib/generate'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
@@ -22,6 +23,7 @@ export default function App() {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('anthropic_api_key') ?? '')
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
   const [presentMode, setPresentMode] = useState(false)
+  const [sessionUsage, setSessionUsage] = useState<GenerateUsage>({ input_tokens: 0, output_tokens: 0 })
 
   function handleApiKeyChange(key: string) {
     setApiKey(key)
@@ -42,12 +44,15 @@ export default function App() {
   async function handleGenerate(prompt: string) {
     setGenerating(true)
     try {
-      const newElements = await generateDiagram(prompt, apiKey)
+      const result = await generateDiagram(prompt, apiKey)
       const current = excalidrawApiRef.current?.getSceneElements() ?? activeDiagram.elements
-      const merged = [...current, ...(newElements as ExcalidrawElement[])]
+      const merged = [...current, ...(result.elements as ExcalidrawElement[])]
+      // DiagramCanvas owns the imperative updateScene via its internal sync effect
       updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
-      excalidrawApiRef.current?.updateScene({ elements: merged })
-      excalidrawApiRef.current?.scrollToContent(undefined, { fitToContent: true, animate: true })
+      setSessionUsage((prev) => ({
+        input_tokens: prev.input_tokens + result.usage.input_tokens,
+        output_tokens: prev.output_tokens + result.usage.output_tokens,
+      }))
     } finally {
       setGenerating(false)
     }
@@ -58,14 +63,17 @@ export default function App() {
     setSeriesProgress({ current: 0, total: count, title: '' })
     const firstId = { current: '' }
     try {
-      const slides = await generateSeries(prompt, count, apiKey, (current, total, title) => {
+      const result = await generateSeries(prompt, count, apiKey, (current, total, title) => {
         setSeriesProgress({ current, total, title })
       })
-      slides.forEach((slide, i) => {
+      result.slides.forEach((slide, i) => {
         const id = addDiagramWithContent(slide.title, slide.elements as ExcalidrawElement[])
         if (i === 0) firstId.current = id
       })
-      // Select the first generated slide
+      setSessionUsage((prev) => ({
+        input_tokens: prev.input_tokens + result.usage.input_tokens,
+        output_tokens: prev.output_tokens + result.usage.output_tokens,
+      }))
       if (firstId.current) setActiveId(firstId.current)
     } finally {
       setGenerating(false)
@@ -186,6 +194,7 @@ export default function App() {
         seriesProgress={seriesProgress}
         apiKey={apiKey}
         onApiKeyChange={handleApiKeyChange}
+        sessionUsage={sessionUsage}
       />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
