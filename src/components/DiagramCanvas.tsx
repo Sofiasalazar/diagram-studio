@@ -21,7 +21,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   const dim = DIMENSIONS[dimension]
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // MutationObserver: hide Excalidraw's toolbar, bottom bar, and welcome screen
+  // MutationObserver: hide Excalidraw's welcome screen and toolbar
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -29,7 +29,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
       container!.querySelectorAll<HTMLElement>(
         '.welcome-screen, [class*="welcome-screen"], ' +
         '.App-toolbar, .App-toolbar-content, .App-toolbar-container, ' +
-        '.shapes-section, .App-bottom-bar'
+        '.shapes-section, .App-menu_top, .App-bottom-bar'
       ).forEach((el) => { el.style.display = 'none' })
     }
     hide()
@@ -52,8 +52,6 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   const initialAppState = {
     ...diagram.appState,
     theme: 'dark' as const,
-    // Always start in hand/pan mode — prevents welcome screen lock icon
-    // and gives a cleaner initial experience without the shape toolbar
     activeTool: {
       type: 'hand' as const,
       customType: null,
@@ -100,13 +98,13 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
             canvasActions: { export: false, saveAsImage: false, clearCanvas: false },
           }}
         />
-        {/* Custom empty-state overlay — sits on top of the Excalidraw canvas illustration */}
+        {/* Empty-state overlay — covers Excalidraw's default padlock illustration */}
         {diagram.elements.length === 0 && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
             style={{ background: '#111111' }}
           >
-            <div className="flex flex-col items-center gap-3 opacity-50">
+            <div className="flex flex-col items-center gap-3 opacity-60">
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
                 <rect x="4" y="10" width="32" height="20" rx="4" stroke="#8b5cf6" strokeWidth="1.5"/>
                 <path d="M12 20h16M20 14v12" stroke="#84cc16" strokeWidth="1.5" strokeLinecap="round"/>
