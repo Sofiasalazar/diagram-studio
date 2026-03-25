@@ -107,10 +107,15 @@ For slides: 8-12 elements per slide. One clear concept per slide. Use a large ti
 // ─── JSON repair helpers ──────────────────────────────────────────────────────
 
 function stripFences(text: string): string {
-  return text
-    .replace(/^```(?:json)?\s*/m, '')
-    .replace(/\s*```\s*$/m, '')
-    .trim()
+  // Remove all markdown code fences (```json ... ``` or ``` ... ```)
+  let cleaned = text.replace(/```(?:json|JSON)?\s*\n?/g, '').trim()
+  // Also strip leading/trailing prose before/after JSON
+  const firstBracket = cleaned.search(/[\[{]/)
+  const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'))
+  if (firstBracket >= 0 && lastBracket > firstBracket) {
+    cleaned = cleaned.slice(firstBracket, lastBracket + 1)
+  }
+  return cleaned
 }
 
 function applyFixes(text: string): string {
@@ -159,7 +164,31 @@ function robustParse(raw: string): unknown {
 }
 
 function freshIds(elements: object[]): object[] {
-  return elements.map((el) => ({ ...(el as object), id: nanoid(8), updated: Date.now(), locked: false }))
+  return elements.map((el) => {
+    const e = el as Record<string, unknown>
+    return {
+      ...e,
+      id: nanoid(8),
+      version: 1,
+      versionNonce: Math.floor(Math.random() * 2147483647),
+      updated: Date.now(),
+      isDeleted: false,
+      locked: false,
+      seed: Math.floor(Math.random() * 2147483647),
+      // Ensure required defaults
+      groupIds: e.groupIds ?? [],
+      boundElements: e.boundElements ?? [],
+      frameId: e.frameId ?? null,
+      link: e.link ?? null,
+      opacity: e.opacity ?? 100,
+      angle: e.angle ?? 0,
+      fillStyle: e.fillStyle ?? 'solid',
+      strokeWidth: e.strokeWidth ?? 2,
+      strokeStyle: e.strokeStyle ?? 'solid',
+      roughness: e.roughness ?? 0,
+      roundness: e.roundness ?? null,
+    }
+  })
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -196,18 +225,37 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
   }
 
   const text = response.content.find((b) => b.type === 'text')?.text ?? '[]'
+  console.log('[DiagramStudio] Raw API response (first 500 chars):', text.slice(0, 500))
   const parsed = robustParse(text)
+  console.log('[DiagramStudio] Parsed result type:', parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed)
 
   // Model sometimes returns {elements:[...]} instead of bare [...] — handle both
-  const rawEls = Array.isArray(parsed)
-    ? (parsed as object[])
-    : Array.isArray((parsed as Record<string, unknown>)?.elements)
-      ? ((parsed as Record<string, unknown>).elements as object[])
-      : null
+  let rawEls: object[] | null = null
+  if (Array.isArray(parsed)) {
+    rawEls = parsed as object[]
+  } else if (parsed && typeof parsed === 'object') {
+    const obj = parsed as Record<string, unknown>
+    if (Array.isArray(obj.elements)) {
+      rawEls = obj.elements as object[]
+    } else if (Array.isArray(obj.diagram)) {
+      rawEls = obj.diagram as object[]
+    } else {
+      // Try to find any array property
+      for (const key of Object.keys(obj)) {
+        if (Array.isArray(obj[key]) && (obj[key] as unknown[]).length > 0) {
+          rawEls = obj[key] as object[]
+          console.log('[DiagramStudio] Found elements under key:', key)
+          break
+        }
+      }
+    }
+  }
 
   if (!rawEls) {
+    console.error('[DiagramStudio] Parse failed. Raw text:', text.slice(0, 1000))
     throw new Error('Could not parse the diagram response. Please try rephrasing your prompt.')
   }
+  console.log('[DiagramStudio] Extracted', rawEls.length, 'elements')
 
   return {
     elements: freshIds(rawEls),

@@ -19,6 +19,7 @@ export default function App() {
 
   const excalidrawApiRef = useRef<ExcalidrawImperativeAPI | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [noticeDismissed, setNoticeDismissed] = useState(false)
   const [seriesProgress, setSeriesProgress] = useState<{ current: number; total: number; title: string } | null>(null)
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('anthropic_api_key') ?? '')
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
@@ -188,6 +189,28 @@ export default function App() {
   // ─── Normal layout ───────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#0A0A0A', color: '#F5F5F5' }}>
+      {/* Data notice banner */}
+      {!noticeDismissed && (
+        <div className="shrink-0 flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(139,92,246,0.08)', borderBottom: '1px solid rgba(139,92,246,0.2)' }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
+            <circle cx="8" cy="8" r="7" stroke="#8b5cf6" strokeWidth="1.5"/>
+            <path d="M8 5v4M8 11h.01" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <p className="text-xs flex-1" style={{ color: '#A3A3A3' }}>
+            This app has no database. Your diagram project lives only in this browser tab and is never sent to Agenticsis.
+          </p>
+          <button
+            onClick={() => setNoticeDismissed(true)}
+            className="text-xs font-medium px-2 py-1 rounded-lg transition-colors shrink-0"
+            style={{ color: '#525252' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#A3A3A3' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#525252' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <Header
         activeDiagram={activeDiagram}
         tabs={tabs}
@@ -228,6 +251,17 @@ export default function App() {
           onUpdate={handleUpdate}
           onApiReady={handleApiReady}
         />
+      </div>
+
+      {/* Footer CTA */}
+      <div className="shrink-0 flex items-center justify-center px-4 py-2" style={{ background: '#0A0A0A', borderTop: '1px solid #262626' }}>
+        <p className="text-xs" style={{ color: '#525252' }}>
+          Want this tool for your brand?{' '}
+          <a href="mailto:info@agenticsis.top" className="font-medium" style={{ color: '#8b5cf6' }}>
+            info@agenticsis.top
+          </a>
+          {' '}&mdash; we build AI-powered tools for your business.
+        </p>
       </div>
     </div>
   )

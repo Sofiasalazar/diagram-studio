@@ -109,7 +109,7 @@ function DiagramItem({
 
 export function Sidebar({ tabs, activeId, onSelect, onAdd, onDelete, onRename, onClose }: Props) {
   return (
-    <aside className="w-48 max-w-[50vw] shrink-0 flex flex-col h-full"
+    <aside className="w-56 max-w-[50vw] shrink-0 flex flex-col h-full"
       style={{ background: '#0A0A0A', borderRight: '1px solid #262626' }}>
       {/* header */}
       <div className="px-4 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1a1a1a' }}>

@@ -42,13 +42,14 @@ html, body, #root {
 }
 
 /* Hide Excalidraw native toolbar and bottom bar.
-   This app uses AI generation instead of manual drawing tools.
-   The MutationObserver in DiagramCanvas.tsx is the primary mechanism;
-   these CSS rules serve as an early-load fallback. */
+   This tool focuses on AI generation; users can pan/zoom/select
+   but we hide the full drawing toolbar to keep the UI clean
+   within the dimension-constrained canvas wrapper. */
 :root .excalidraw .App-toolbar,
 :root .excalidraw .App-toolbar-content,
 :root .excalidraw .App-toolbar-container,
 :root .excalidraw .shapes-section,
+:root .excalidraw .App-menu_top,
 :root .excalidraw .App-toolbar--mobile {
   display: none !important;
 }
