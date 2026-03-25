@@ -45,10 +45,22 @@ export default function App() {
     setGenerating(true)
     try {
       const result = await generateDiagram(prompt, apiKey)
-      const current = excalidrawApiRef.current?.getSceneElements() ?? activeDiagram.elements
-      const merged = [...current, ...(result.elements as ExcalidrawElement[])]
-      // DiagramCanvas owns the imperative updateScene via its internal sync effect
-      updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
+      const newElements = result.elements as ExcalidrawElement[]
+
+      const api = excalidrawApiRef.current
+      if (api) {
+        // Push directly to canvas — no React state cycle, no timing issues
+        const existing = api.getSceneElements() as ExcalidrawElement[]
+        const merged = existing.length > 0 ? [...existing, ...newElements] : newElements
+        api.updateScene({ elements: merged })
+        setTimeout(() => api.scrollToContent(undefined, { fitToContent: true, animate: true }), 150)
+        // Also persist to state so tab switching restores the diagram
+        updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
+      } else {
+        // API not ready (rare) — fall back to state only
+        updateDiagram(activeId, newElements, activeDiagram.appState, activeDiagram.files)
+      }
+
       setSessionUsage((prev) => ({
         input_tokens: prev.input_tokens + result.usage.input_tokens,
         output_tokens: prev.output_tokens + result.usage.output_tokens,
