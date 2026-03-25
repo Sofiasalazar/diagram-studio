@@ -21,18 +21,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   const dim = DIMENSIONS[dimension]
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Internal API ref — owned by this component for reliable sync
-  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
-
-  // Flag: true when the last elements change came from user drawing (onChange),
-  // false when it came from an external source (AI generation via props).
-  const isInternalChangeRef = useRef(false)
-
-  // Track the last elements array reference to detect external updates
-  const prevElementsRef = useRef(diagram.elements)
-
   // MutationObserver: hide Excalidraw's toolbar, bottom bar, and welcome screen
-  // via inline style (wins over CSS specificity battles in Vite bundles)
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -49,36 +38,12 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
     return () => observer.disconnect()
   }, [])
 
-  // Sync externally-changed elements (from AI generation) into the Excalidraw canvas
-  useEffect(() => {
-    const prev = prevElementsRef.current
-    prevElementsRef.current = diagram.elements
-
-    if (isInternalChangeRef.current) {
-      // This change originated from the user drawing on canvas — canvas already
-      // has these elements via Excalidraw's own state; skip to avoid loops.
-      isInternalChangeRef.current = false
-      return
-    }
-
-    if (diagram.elements !== prev && apiRef.current && diagram.elements.length > 0) {
-      // External change (AI generation): push elements into the canvas and fit view
-      apiRef.current.updateScene({ elements: diagram.elements as ExcalidrawElement[] })
-      setTimeout(() => {
-        apiRef.current?.scrollToContent(undefined, { fitToContent: true, animate: true })
-      }, 120)
-    }
-  }, [diagram.elements])
-
   const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
-    apiRef.current = api
     onApiReady?.(api)
   }, [onApiReady])
 
   const handleChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
-      // Mark this as an internal (user-drawn) change before updating state
-      isInternalChangeRef.current = true
       onUpdate(elements, appState, files)
     },
     [onUpdate]
