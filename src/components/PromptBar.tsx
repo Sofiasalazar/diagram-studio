@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import type { GenerateUsage } from '../lib/generate'
 
 interface Props {
   onGenerate: (prompt: string) => Promise<void>
@@ -7,10 +8,24 @@ interface Props {
   seriesProgress: { current: number; total: number; title: string } | null
   apiKey: string
   onApiKeyChange: (key: string) => void
+  sessionUsage: GenerateUsage
+}
+
+const INPUT_COST_PER_MTOK = 15   // $15 per million input tokens (claude-opus-4-6)
+const OUTPUT_COST_PER_MTOK = 75  // $75 per million output tokens
+
+function formatCost(usage: GenerateUsage): string {
+  const cost = (usage.input_tokens * INPUT_COST_PER_MTOK + usage.output_tokens * OUTPUT_COST_PER_MTOK) / 1_000_000
+  if (cost < 0.001) return '< $0.001'
+  return `$${cost.toFixed(3)}`
+}
+
+function formatNum(n: number): string {
+  return n.toLocaleString()
 }
 
 export function PromptBar({
-  onGenerate, onGenerateSeries, generating, seriesProgress, apiKey, onApiKeyChange,
+  onGenerate, onGenerateSeries, generating, seriesProgress, apiKey, onApiKeyChange, sessionUsage,
 }: Props) {
   const [prompt, setPrompt] = useState('')
   const [showKey, setShowKey] = useState(false)
@@ -50,11 +65,12 @@ export function PromptBar({
     }
   }
 
-  const isGenerating = generating
+  const hasUsage = sessionUsage.input_tokens > 0
 
   return (
     <div className="px-4 py-3" style={{ background: '#0A0A0A', borderBottom: '1px solid #262626' }}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+
         {/* API key row */}
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-xs font-semibold tracking-wide shrink-0" style={{ color: '#525252' }}>API Key</span>
@@ -80,71 +96,126 @@ export function PromptBar({
               {showKey ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
-          <p className="text-xs hidden sm:block" style={{ color: '#A3A3A3' }}>
-            Anthropic API key only (sk-ant-...) — stored in your browser, sent directly to Anthropic.
+          <p className="text-xs hidden sm:block" style={{ color: '#525252' }}>
+            Stored in browser — sent directly to Anthropic.
           </p>
+
+          {/* Session token + cost counter */}
+          {hasUsage && (
+            <div className="ml-auto flex items-center gap-3 text-xs shrink-0">
+              <span style={{ color: '#525252' }}>
+                <span style={{ color: '#A3A3A3' }}>{formatNum(sessionUsage.input_tokens)}</span> in
+                {' / '}
+                <span style={{ color: '#A3A3A3' }}>{formatNum(sessionUsage.output_tokens)}</span> out tokens
+              </span>
+              <span
+                className="px-2 py-0.5 rounded-full font-semibold"
+                style={{ background: 'rgba(132,204,22,0.10)', color: '#84cc16', border: '1px solid rgba(132,204,22,0.25)' }}
+              >
+                {formatCost(sessionUsage)}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Prompt + mode row */}
-        <div className="flex gap-2 items-end">
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                seriesMode
-                  ? `Describe a topic for ${slideCount} slides... (e.g. "Product launch roadmap", "Onboarding flow")`
-                  : 'Describe a diagram... (e.g. user login flowchart, API architecture)    Enter to generate'
-              }
-              rows={1}
-              className="w-full resize-none px-4 py-3 rounded-xl text-sm outline-none transition-all duration-150 leading-relaxed"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #262626', color: '#F5F5F5' }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#262626' }}
-            />
-          </div>
-
-          {/* series toggle + count */}
-          <div className="flex items-center gap-1.5 shrink-0">
+        {/* Mode switcher: Single Diagram / Slide Deck */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold tracking-wide shrink-0" style={{ color: '#525252' }}>Mode</span>
+          <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #262626' }}>
             <button
               type="button"
-              onClick={() => setSeriesMode((v) => !v)}
-              title="Toggle series mode (generate multiple slides at once)"
-              className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all duration-150"
-              style={seriesMode
-                ? { background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.4)' }
-                : { background: 'rgba(255,255,255,0.04)', color: '#525252', border: '1px solid #262626' }
+              onClick={() => setSeriesMode(false)}
+              className="px-3 py-1.5 text-xs font-semibold transition-all duration-150"
+              style={!seriesMode
+                ? { background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }
+                : { background: 'transparent', color: '#525252' }
               }
             >
-              <SlidesIcon />
-              <span className="hidden sm:block">Series</span>
+              Single Diagram
             </button>
-
-            {seriesMode && (
-              <select
-                value={slideCount}
-                onChange={(e) => setSlideCount(Number(e.target.value))}
-                className="px-2 py-2 rounded-xl text-xs font-medium outline-none transition-all duration-150"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #262626', color: '#A3A3A3' }}
-              >
-                {[2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>{n} slides</option>
-                ))}
-              </select>
-            )}
+            <div style={{ width: 1, background: '#262626' }} />
+            <button
+              type="button"
+              onClick={() => setSeriesMode(true)}
+              className="px-3 py-1.5 text-xs font-semibold transition-all duration-150"
+              style={seriesMode
+                ? { background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }
+                : { background: 'transparent', color: '#525252' }
+              }
+            >
+              Slide Deck
+            </button>
           </div>
+
+          {/* Slide count stepper — only visible in Slide Deck mode */}
+          {seriesMode && (
+            <div className="flex items-center gap-2 ml-2">
+              <span className="text-xs" style={{ color: '#525252' }}>Slides:</span>
+              <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid #262626' }}>
+                <button
+                  type="button"
+                  onClick={() => setSlideCount((n) => Math.max(2, n - 1))}
+                  disabled={slideCount <= 2}
+                  className="px-2.5 py-1.5 text-sm font-bold transition-colors disabled:opacity-30"
+                  style={{ color: '#A3A3A3', background: 'transparent' }}
+                  onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.color = '#8b5cf6' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#A3A3A3' }}
+                >
+                  −
+                </button>
+                <span
+                  className="px-3 py-1.5 text-xs font-bold min-w-[2rem] text-center"
+                  style={{ color: '#8b5cf6', background: 'rgba(139,92,246,0.08)', borderLeft: '1px solid #262626', borderRight: '1px solid #262626' }}
+                >
+                  {slideCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSlideCount((n) => Math.min(8, n + 1))}
+                  disabled={slideCount >= 8}
+                  className="px-2.5 py-1.5 text-sm font-bold transition-colors disabled:opacity-30"
+                  style={{ color: '#A3A3A3', background: 'transparent' }}
+                  onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.color = '#8b5cf6' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#A3A3A3' }}
+                >
+                  +
+                </button>
+              </div>
+              <span className="text-xs" style={{ color: '#525252' }}>
+                {slideCount === 1 ? 'slide' : 'slides'} — each generated individually
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Prompt + generate button */}
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              seriesMode
+                ? `Describe a topic for ${slideCount} slides... (e.g. "Product launch roadmap", "Onboarding flow")    Enter to generate`
+                : 'Describe a diagram... (e.g. user login flowchart, microservices architecture)    Enter to generate'
+            }
+            rows={1}
+            className="flex-1 resize-none px-4 py-3 rounded-xl text-sm outline-none transition-all duration-150 leading-relaxed"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #262626', color: '#F5F5F5' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#262626' }}
+          />
 
           <button
             type="submit"
-            disabled={isGenerating || !prompt.trim()}
+            disabled={generating || !prompt.trim()}
             className="shrink-0 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
             style={{ background: '#84cc16', color: '#000000' }}
             onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.opacity = '0.9' }}
             onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
           >
-            {isGenerating ? (
+            {generating ? (
               <>
                 <Spinner />
                 <span className="hidden sm:block">
@@ -154,13 +225,13 @@ export function PromptBar({
             ) : (
               <>
                 <SparklesIcon />
-                <span className="hidden sm:block">{seriesMode ? 'Generate Series' : 'Generate'}</span>
+                <span className="hidden sm:block">{seriesMode ? `Generate ${slideCount} Slides` : 'Generate'}</span>
               </>
             )}
           </button>
         </div>
 
-        {/* series progress */}
+        {/* Series progress bar */}
         {seriesProgress && (
           <div className="flex items-center gap-3">
             <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -173,7 +244,8 @@ export function PromptBar({
               />
             </div>
             <span className="text-xs shrink-0" style={{ color: '#A3A3A3' }}>
-              "{seriesProgress.title}"
+              Slide {seriesProgress.current}/{seriesProgress.total}
+              {seriesProgress.title ? ` — "${seriesProgress.title}"` : ''}
             </span>
           </div>
         )}
@@ -189,15 +261,6 @@ function SparklesIcon() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
       <path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11l-1.5-3.5L3 6l3.5-1.5L8 1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
       <path d="M13 10l.75 1.75L15.5 12.5l-1.75.75L13 15l-.75-1.75L10.5 12.5l1.75-.75L13 10z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-function SlidesIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="3" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
-      <rect x="4" y="5" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 1"/>
     </svg>
   )
 }
