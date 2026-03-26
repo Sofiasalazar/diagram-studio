@@ -57,3 +57,27 @@ html, body, #root {
 :root .excalidraw .App-bottom-bar {
   display: none !important;
 }
+
+/* Force dark canvas background */
+:root .excalidraw {
+  --island-bg-color: #111111 !important;
+}
+
+/* Hide context menus, zen mode UI, footer, and all overlay UI */
+:root .excalidraw .context-menu-container,
+:root .excalidraw .excalidraw-contextMenuContainer,
+:root .excalidraw [class*="context-menu"],
+:root .excalidraw .zen-mode-transition,
+:root .excalidraw .disable-zen-mode,
+:root .excalidraw [class*="zen-mode"],
+:root .excalidraw .layer-ui__wrapper__footer,
+:root .excalidraw .App-menu,
+:root .excalidraw .App-menu_bottom,
+:root .excalidraw .HintViewer,
+:root .excalidraw .help-icon,
+:root .excalidraw .FixedSideContainer {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
