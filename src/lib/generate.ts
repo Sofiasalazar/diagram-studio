@@ -158,11 +158,11 @@ function processElements(rawElements: object[]): {
 
   for (const el of rawElements) {
     const e = el as Record<string, unknown>
-    // Fix standalone text visibility on dark canvas
+    // Ensure text is visible
     if (e.type === 'text') {
       const sc = e.strokeColor as string | undefined
-      if (!sc || sc === '#1e1e1e' || sc === 'transparent') {
-        e.strokeColor = '#e5e5e5'
+      if (!sc || sc === 'transparent') {
+        e.strokeColor = '#1e1e1e'
       }
     }
     if (e.type === 'cameraUpdate') {

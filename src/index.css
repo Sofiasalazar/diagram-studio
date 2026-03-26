@@ -58,9 +58,9 @@ html, body, #root {
   display: none !important;
 }
 
-/* Force dark canvas background */
+/* Canvas background */
 :root .excalidraw {
-  --island-bg-color: #111111 !important;
+  --island-bg-color: #ffffff !important;
 }
 
 /* Hide context menus, zen mode UI, footer, and all overlay UI */
