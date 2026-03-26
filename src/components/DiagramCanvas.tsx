@@ -54,8 +54,8 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
 
   const initialAppState = {
     ...diagram.appState,
-    theme: 'dark' as const,
-    viewBackgroundColor: '#111111',
+    theme: 'light' as const,
+    viewBackgroundColor: '#ffffff',
     zenModeEnabled: false,
     activeTool: {
       type: 'hand' as const,
@@ -98,7 +98,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
             files: diagram.files,
           }}
           onChange={handleChange}
-          theme="dark"
+          theme="light"
           UIOptions={{
             canvasActions: { export: false, saveAsImage: false, clearCanvas: false },
           }}
@@ -107,14 +107,14 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
         {diagram.elements.length === 0 && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
-            style={{ background: '#111111' }}
+            style={{ background: '#ffffff' }}
           >
             <div className="flex flex-col items-center gap-3 opacity-60">
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
                 <rect x="4" y="10" width="32" height="20" rx="4" stroke="#8b5cf6" strokeWidth="1.5"/>
                 <path d="M12 20h16M20 14v12" stroke="#84cc16" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
-              <p className="text-sm font-medium" style={{ color: '#525252' }}>
+              <p className="text-sm font-medium" style={{ color: '#999999' }}>
                 Type a prompt above to generate your diagram
               </p>
             </div>

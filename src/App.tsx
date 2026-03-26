@@ -50,11 +50,11 @@ export default function App() {
     let camX: number, camY: number, camW: number, camH: number
 
     if (result.camera) {
-      // Use model-specified camera with 20% extra padding
-      camW = result.camera.width * 1.2
-      camH = result.camera.height * 1.2
-      camX = result.camera.x - result.camera.width * 0.1
-      camY = result.camera.y - result.camera.height * 0.1
+      // Use model-specified camera with 40% extra padding to prevent clipping
+      camW = result.camera.width * 1.4
+      camH = result.camera.height * 1.4
+      camX = result.camera.x - result.camera.width * 0.2
+      camY = result.camera.y - result.camera.height * 0.2
     } else {
       // Fallback: calculate from element bounds
       const els = api.getSceneElements()
@@ -87,7 +87,7 @@ export default function App() {
         zoom: { value: zoom as unknown as number & { _brand: 'normalizedZoom' } },
         scrollX: cw / 2 / zoom - camCenterX,
         scrollY: ch / 2 / zoom - camCenterY,
-        viewBackgroundColor: '#111111',
+        viewBackgroundColor: '#ffffff',
         zenModeEnabled: false,
       },
     })
