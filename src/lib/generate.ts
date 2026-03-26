@@ -11,7 +11,7 @@ const JSON_RULES = `CRITICAL FORMATTING RULES:
 - Never use undefined, NaN, or Infinity — use null or 0 instead.
 - Produce valid RFC 8259 JSON only.`
 
-const ELEMENT_SPEC = `IMPORTANT: Generate between 15 and 25 elements total. Create a RICH, DETAILED diagram with shapes, labels, connecting arrows, and section titles. Text values up to 60 characters.
+const ELEMENT_SPEC = `IMPORTANT: Generate between 8 and 15 elements total. Create a CLEAR, CONCISE diagram with shapes, labels, and connecting arrows. Keep text values short (under 40 characters). Minimize properties -- only include required fields.
 
 COLOR PALETTE — use these for backgroundColor to create visual zones:
 - Headers/titles: "#1e1b4b" (dark indigo) with strokeColor "#4f46e5"
@@ -139,6 +139,33 @@ function tryParse(text: string): unknown {
   try { return JSON.parse(text) } catch { return null }
 }
 
+function repairTruncated(text: string): string {
+  // If JSON was truncated mid-generation (hit max_tokens),
+  // try to salvage by closing at the last complete element
+  const trimmed = text.trim()
+
+  // Already valid structure
+  if ((trimmed.startsWith('[') && trimmed.endsWith(']')) ||
+      (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+    return trimmed
+  }
+
+  // Array truncated: find the last complete object "}" and close the array
+  if (trimmed.startsWith('[')) {
+    // Find last "}," or "}" that ends a complete element
+    const lastCompleteObj = trimmed.lastIndexOf('},')
+    const lastObj = trimmed.lastIndexOf('}')
+
+    if (lastCompleteObj > 0) {
+      return trimmed.slice(0, lastCompleteObj + 1) + ']'
+    } else if (lastObj > 0) {
+      return trimmed.slice(0, lastObj + 1) + ']'
+    }
+  }
+
+  return trimmed
+}
+
 function robustParse(raw: string): unknown {
   const text = stripFences(raw)
 
@@ -150,14 +177,22 @@ function robustParse(raw: string): unknown {
   const r2 = tryParse(applyFixes(text))
   if (r2 !== null) return r2
 
-  // Attempt 3: extract the first [...] or {...} block
+  // Attempt 3: repair truncated JSON (model hit max_tokens)
+  const repaired = repairTruncated(applyFixes(text))
+  const r3 = tryParse(repaired)
+  if (r3 !== null) {
+    console.log('[DiagramStudio] Repaired truncated JSON successfully')
+    return r3
+  }
+
+  // Attempt 4: extract the first [...] or {...} block
   const block = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/)
   if (block) {
-    const r3 = tryParse(block[0])
-    if (r3 !== null) return r3
-
-    const r4 = tryParse(applyFixes(block[0]))
+    const r4 = tryParse(block[0])
     if (r4 !== null) return r4
+
+    const r5 = tryParse(applyFixes(block[0]))
+    if (r5 !== null) return r5
   }
 
   return null
@@ -214,8 +249,8 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
   let response
   try {
     response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 8192,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 16384,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
     })
@@ -224,8 +259,16 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
     throw new Error(`API error: ${msg}`)
   }
 
-  const text = response.content.find((b) => b.type === 'text')?.text ?? '[]'
-  console.log('[DiagramStudio] Raw API response (first 500 chars):', text.slice(0, 500))
+  // Debug: log all content blocks
+  console.log('[DiagramStudio] Content blocks:', response.content.map((b: { type: string }) => b.type))
+  const text = response.content.find((b) => b.type === 'text')?.text ?? ''
+  console.log('[DiagramStudio] Raw text length:', text.length)
+  console.log('[DiagramStudio] Raw text (first 500):', text.slice(0, 500))
+
+  if (!text) {
+    throw new Error('API returned no text content. Content types: ' + response.content.map((b: { type: string }) => b.type).join(', '))
+  }
+
   const parsed = robustParse(text)
   console.log('[DiagramStudio] Parsed result type:', parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed)
 
@@ -252,8 +295,8 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
   }
 
   if (!rawEls) {
-    console.error('[DiagramStudio] Parse failed. Raw text:', text.slice(0, 1000))
-    throw new Error('Could not parse the diagram response. Please try rephrasing your prompt.')
+    console.error('[DiagramStudio] Parse failed. Raw text:', text)
+    throw new Error('Parse failed. First 200 chars: ' + text.slice(0, 200))
   }
   console.log('[DiagramStudio] Extracted', rawEls.length, 'elements')
 
@@ -294,8 +337,8 @@ export async function generateSeries(
 Respond ONLY with: {"title":"Short title (2-5 words)","elements":[...]}`
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 8192,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 16384,
       system: SLIDE_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMsg }],
     })

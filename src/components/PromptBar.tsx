@@ -11,8 +11,8 @@ interface Props {
   sessionUsage: GenerateUsage
 }
 
-const INPUT_COST_PER_MTOK = 15   // $15 per million input tokens (claude-opus-4-6)
-const OUTPUT_COST_PER_MTOK = 75  // $75 per million output tokens
+const INPUT_COST_PER_MTOK = 3    // $3 per million input tokens (claude-sonnet-4)
+const OUTPUT_COST_PER_MTOK = 15  // $15 per million output tokens
 
 function formatCost(usage: GenerateUsage): string {
   const cost = (usage.input_tokens * INPUT_COST_PER_MTOK + usage.output_tokens * OUTPUT_COST_PER_MTOK) / 1_000_000
