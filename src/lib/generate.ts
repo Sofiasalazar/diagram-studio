@@ -26,10 +26,10 @@ Arrow bindings: \`"startBinding": { "elementId": "r1", "fixedPoint": [1, 0.5] }\
 fixedPoint: top=[0.5,0], bottom=[0.5,1], left=[0,0.5], right=[1,0.5]
 
 ### Camera (REQUIRED as FIRST element)
-Controls viewport framing. Must be 4:3 ratio.
+Controls viewport framing. Must be 4:3 ratio. Make the camera 30-50% LARGER than your content to ensure nothing is clipped.
 \`{ "type": "cameraUpdate", "width": 800, "height": 600, "x": 0, "y": 0 }\`
-Sizes: 400x300 (small), 600x450 (medium), 800x600 (default), 1200x900 (large)
-Leave padding between content and camera edges.
+Sizes: 600x450 (small), 800x600 (medium/DEFAULT), 1200x900 (large diagrams)
+x,y = top-left corner of visible area. If content starts at x:50,y:20 and is 700px wide by 500px tall, use: x:-50, y:-30, width:1000, height:750
 
 ## Color Palette
 

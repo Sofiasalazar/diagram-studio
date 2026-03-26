@@ -43,18 +43,44 @@ export default function App() {
   }, [])
 
   function applyCamera(api: ExcalidrawImperativeAPI, result: DiagramResult) {
-    const camera = result.camera
-    if (!camera) return
-
-    // Get container dimensions to calculate zoom
     const container = document.querySelector('.excalidraw')
     const cw = container?.clientWidth || 1280
     const ch = container?.clientHeight || 720
 
-    // Zoom to fit the camera frame in the container
-    const zoom = Math.min(cw / camera.width, ch / camera.height, 1.5)
-    const camCenterX = camera.x + camera.width / 2
-    const camCenterY = camera.y + camera.height / 2
+    let camX: number, camY: number, camW: number, camH: number
+
+    if (result.camera) {
+      // Use model-specified camera with 20% extra padding
+      camW = result.camera.width * 1.2
+      camH = result.camera.height * 1.2
+      camX = result.camera.x - result.camera.width * 0.1
+      camY = result.camera.y - result.camera.height * 0.1
+    } else {
+      // Fallback: calculate from element bounds
+      const els = api.getSceneElements()
+      if (els.length === 0) return
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const el of els) {
+        const e = el as unknown as { x: number; y: number; width: number; height: number; points?: number[][] }
+        minX = Math.min(minX, e.x)
+        minY = Math.min(minY, e.y)
+        maxX = Math.max(maxX, e.x + Math.abs(e.width || 0))
+        maxY = Math.max(maxY, e.y + Math.abs(e.height || 0))
+        if (e.points) for (const [px, py] of e.points) {
+          maxX = Math.max(maxX, e.x + px)
+          maxY = Math.max(maxY, e.y + py)
+        }
+      }
+      const pad = 80
+      camX = minX - pad
+      camY = minY - pad
+      camW = (maxX - minX) + pad * 2
+      camH = (maxY - minY) + pad * 2
+    }
+
+    const zoom = Math.min(cw / camW, ch / camH, 1.2)
+    const camCenterX = camX + camW / 2
+    const camCenterY = camY + camH / 2
 
     api.updateScene({
       appState: {
