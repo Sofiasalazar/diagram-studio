@@ -1,117 +1,87 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { nanoid } from 'nanoid'
+import { convertToExcalidrawElements } from '@excalidraw/excalidraw'
 
-// ─── Shared prompt fragments ──────────────────────────────────────────────────
+// ─── System prompt (MCP-style simplified format) ─────────────────────────────
 
-const JSON_RULES = `CRITICAL FORMATTING RULES:
-- Output ONLY raw JSON — no explanation, no markdown, no code fences.
-- ALL property names MUST use double quotes. NEVER single quotes or bare identifiers.
-- All string values MUST use double quotes.
-- No trailing commas before } or ].
-- Never use undefined, NaN, or Infinity — use null or 0 instead.
-- Produce valid RFC 8259 JSON only.`
+const SYSTEM_PROMPT = `You are an expert diagram creator using Excalidraw's simplified element format.
 
-const ELEMENT_SPEC = `IMPORTANT: Generate between 8 and 15 elements total. Create a CLEAR, CONCISE diagram with shapes, labels, and connecting arrows. Keep text values short (under 40 characters). Minimize properties -- only include required fields.
+RESPOND WITH ONLY A JSON ARRAY. No markdown, no code fences, no explanation.
 
-COLOR PALETTE — use these for backgroundColor to create visual zones:
-- Headers/titles: "#1e1b4b" (dark indigo) with strokeColor "#4f46e5"
-- Primary boxes: "#ede9fe" with strokeColor "#7c3aed"
-- Secondary boxes: "#f0fdf4" with strokeColor "#16a34a"
-- Accent boxes: "#fff7ed" with strokeColor "#ea580c"
-- Neutral/gray boxes: "#1c1917" with strokeColor "#44403c"
-- Decision diamonds: "#fefce8" with strokeColor "#ca8a04"
-- Arrows/lines: strokeColor "#6b7280", backgroundColor "transparent"
-- Text-only elements: backgroundColor "transparent", strokeColor "#F5F5F5" (white text for dark canvas)
-- Text INSIDE colored shapes: strokeColor "#1e1e1e" (dark text on light backgrounds)
+## Element Format
 
-Required fields for EVERY element:
-- id: unique 8-char alphanumeric string
-- type: "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "text"
-- x, y: position numbers (integers)
-- width, height: size numbers (integers)
-- angle: 0
-- strokeColor: a hex color string
-- backgroundColor: "transparent" or a hex color
-- fillStyle: "solid"
-- strokeWidth: 2
-- strokeStyle: "solid" | "dashed"
-- roughness: 0
-- opacity: 100
-- groupIds: []
-- frameId: null
-- roundness: null (or {"type": 3} for rounded rectangles/ellipses)
-- boundElements: []
-- updated: 1
-- link: null
-- locked: false
+Required fields for ALL elements: type, id (unique string), x, y, width, height
 
-For "text" elements, also add:
-- text: "the string"
-- fontSize: 16 (use 20 for titles, 14 for small labels)
-- fontFamily: 1
-- textAlign: "center"
-- verticalAlign: "middle"
-- containerId: null (ALWAYS null -- never bind text to shapes)
-- originalText: "same as text"
-- lineHeight: 1.25
-IMPORTANT: Place text elements as SEPARATE, STANDALONE elements positioned visually on top of shapes. Do NOT use containerId to bind text to shapes.
+### Shapes (rectangle, ellipse, diamond)
+Use \`label\` for auto-centered text inside shapes — no separate text elements needed.
+\`{ "type": "rectangle", "id": "r1", "x": 100, "y": 100, "width": 200, "height": 80, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "roundness": { "type": 3 }, "label": { "text": "My Label", "fontSize": 18 } }\`
 
-For "arrow" or "line" elements, also add:
-- points: [[0,0],[dx,dy]] where dx/dy describe the direction and length
-- lastCommittedPoint: null
-- startBinding: null
-- endBinding: null
-- startArrowhead: null
-- endArrowhead: "arrow" (for arrows) or null (for lines)
+### Standalone text (titles only)
+\`{ "type": "text", "id": "t1", "x": 150, "y": 20, "text": "Title Here", "fontSize": 24 }\`
+To center: x = centerX - (text.length * fontSize * 0.5) / 2
 
-LAYOUT STRATEGY — adapt to diagram type:
-- Flowcharts: top-to-bottom, nodes every 120px vertically. Start at x:200, y:80.
-- Architecture: layered zones, each zone a large background rectangle + inner boxes. x:50 to x:1100.
-- ERD/Schema: left-to-right tables, each table column 220px wide. Relationships as horizontal arrows.
-- Mind map: center hub ellipse at x:550,y:400, branches radiate out 250px in all directions.
-- Timeline: horizontal, milestones every 200px along y:300. Start at x:80.
-- Org chart: top-down hierarchy, each level 120px below previous, siblings 200px apart.
+### Arrows
+\`{ "type": "arrow", "id": "a1", "x": 300, "y": 150, "width": 200, "height": 0, "points": [[0,0],[200,0]], "endArrowhead": "arrow" }\`
+For labeled arrows: add \`"label": { "text": "connects" }\`
+Arrow bindings: \`"startBinding": { "elementId": "r1", "fixedPoint": [1, 0.5] }\`
+fixedPoint: top=[0.5,0], bottom=[0.5,1], left=[0,0.5], right=[1,0.5]
 
-COMPOSITION RULES:
-- Add a title text element at the top (fontSize:24, y:20).
-- Use large background rectangles (low opacity look: fillStyle "solid") to group related items into zones.
-- Connect all process steps with arrow elements.
-- Add short label text elements INSIDE or NEXT to every shape.
-- Use color coding consistently — same color = same logical group.
-- Minimum 5 arrows for any flow diagram. Minimum 3 zones/groups for architecture.`
+### Camera (REQUIRED as FIRST element)
+Controls viewport framing. Must be 4:3 ratio. Make the camera 30-50% LARGER than your content to ensure nothing is clipped.
+\`{ "type": "cameraUpdate", "width": 800, "height": 600, "x": 0, "y": 0 }\`
+Sizes: 600x450 (small), 800x600 (medium/DEFAULT), 1200x900 (large diagrams)
+x,y = top-left corner of visible area. If content starts at x:50,y:20 and is 700px wide by 500px tall, use: x:-50, y:-30, width:1000, height:750
 
-// ─── System prompts ───────────────────────────────────────────────────────────
+## Color Palette
 
-const SYSTEM_PROMPT = `You are an expert Excalidraw diagram creator. Your diagrams are professional, richly detailed, and visually clear.
+### Shape fills (pastels)
+- Light Blue #a5d8ff — inputs, sources
+- Light Green #b2f2bb — success, output
+- Light Orange #ffd8a8 — warning, external
+- Light Purple #d0bfff — processing, special
+- Light Red #ffc9c9 — errors, critical
+- Light Yellow #fff3bf — decisions, notes
+- Light Teal #c3fae8 — storage, data
 
-Think step by step:
-1. Identify the diagram type from the prompt (flowchart, architecture, ERD, mind map, timeline, org chart, etc.)
-2. Plan the layout and color zones
-3. List all elements needed (shapes, labels, arrows, section titles)
-4. Output the JSON array
+### Stroke colors
+- Default: #1e1e1e
+- Blue: #4a9eed, Green: #22c55e, Purple: #8b5cf6, Orange: #f59e0b, Red: #ef4444
 
-Respond with ONLY a valid JSON array of Excalidraw elements. Start with [ and end with ].
+### Background zones (use opacity: 30)
+- Blue zone #dbe4ff, Purple zone #e5dbff, Green zone #d3f9d8
 
-${JSON_RULES}
+## Rules
+- ALWAYS start with cameraUpdate as the FIRST element
+- Use label property on shapes — NEVER create separate text elements for shape labels
+- Minimum shape size: 120x60 for labeled shapes
+- Minimum fontSize: 16 for labels, 20 for titles
+- Leave 20-30px gaps between elements
+- 8-15 elements total for clarity
+- Emit progressively: background zone → shape + arrows → next shape
+- Keep text short (under 30 characters per label)
 
-${ELEMENT_SPEC}`
+## Example: Two connected boxes
+\`\`\`json
+[
+  { "type": "cameraUpdate", "width": 800, "height": 600, "x": 50, "y": 50 },
+  { "type": "text", "id": "t1", "x": 220, "y": 60, "text": "Simple Flow", "fontSize": 24 },
+  { "type": "rectangle", "id": "b1", "x": 100, "y": 120, "width": 200, "height": 80, "roundness": { "type": 3 }, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "label": { "text": "Start", "fontSize": 20 } },
+  { "type": "arrow", "id": "a1", "x": 300, "y": 160, "width": 150, "height": 0, "points": [[0,0],[150,0]], "endArrowhead": "arrow", "startBinding": { "elementId": "b1", "fixedPoint": [1, 0.5] }, "endBinding": { "elementId": "b2", "fixedPoint": [0, 0.5] } },
+  { "type": "rectangle", "id": "b2", "x": 450, "y": 120, "width": 200, "height": 80, "roundness": { "type": 3 }, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "label": { "text": "End", "fontSize": 20 } }
+]
+\`\`\``
 
-const SLIDE_SYSTEM_PROMPT = `You are creating one slide in a series of Excalidraw diagrams. Each slide is professional, colorful, and easy to read.
+const SLIDE_SYSTEM_PROMPT = `You are creating one slide in a series of Excalidraw diagrams.
 
-Respond with ONLY a JSON object: {"title":"Short title (2-5 words)","elements":[...]}
+Respond with ONLY a JSON object: {"title":"Short title","elements":[...]}
 
-${JSON_RULES}
+${SYSTEM_PROMPT.split('## Example')[0]}
 
-${ELEMENT_SPEC}
-
-For slides: 8-12 elements per slide. One clear concept per slide. Use a large title text element at top (fontSize:22). Use color zones to visually separate sections.`
+For slides: 6-10 elements per slide. One concept per slide. Include a cameraUpdate (600x450) as the first element.`
 
 // ─── JSON repair helpers ──────────────────────────────────────────────────────
 
 function stripFences(text: string): string {
-  // Remove all markdown code fences (```json ... ``` or ``` ... ```)
   let cleaned = text.replace(/```(?:json|JSON)?\s*\n?/g, '').trim()
-  // Also strip leading/trailing prose before/after JSON
   const firstBracket = cleaned.search(/[\[{]/)
   const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'))
   if (firstBracket >= 0 && lastBracket > firstBracket) {
@@ -122,16 +92,10 @@ function stripFences(text: string): string {
 
 function applyFixes(text: string): string {
   return text
-    // Remove single-line JS comments
     .replace(/\/\/[^\n]*/g, '')
-    // Fix trailing commas before } or ]
     .replace(/,(\s*[}\]])/g, '$1')
-    // Fix single-quoted property names:  {'key':  →  "key":
     .replace(/([{,]\s*)'([^']+)'(\s*:)/g, '$1"$2"$3')
-    // Fix unquoted property names:  {key:  →  {"key":
-    // (excludes :: and :// so we don't mangle URLs or type annotations)
-    .replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)(\s*:(?!\s*[:\/]))/g, '$1"$2"$3')
-    // Replace JS-only values
+    .replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)(\s*:(?!\s*[:/]))/g, '$1"$2"$3')
     .replace(/:\s*undefined\b/g, ': null')
     .replace(/:\s*NaN\b/g, ': 0')
     .replace(/:\s*Infinity\b/g, ': 999999')
@@ -142,135 +106,88 @@ function tryParse(text: string): unknown {
 }
 
 function repairTruncated(text: string): string {
-  // If JSON was truncated mid-generation (hit max_tokens),
-  // try to salvage by closing at the last complete element
   const trimmed = text.trim()
-
-  // Already valid structure
   if ((trimmed.startsWith('[') && trimmed.endsWith(']')) ||
       (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
     return trimmed
   }
-
-  // Array truncated: find the last complete object "}" and close the array
   if (trimmed.startsWith('[')) {
-    // Find last "}," or "}" that ends a complete element
     const lastCompleteObj = trimmed.lastIndexOf('},')
     const lastObj = trimmed.lastIndexOf('}')
-
-    if (lastCompleteObj > 0) {
-      return trimmed.slice(0, lastCompleteObj + 1) + ']'
-    } else if (lastObj > 0) {
-      return trimmed.slice(0, lastObj + 1) + ']'
-    }
+    if (lastCompleteObj > 0) return trimmed.slice(0, lastCompleteObj + 1) + ']'
+    if (lastObj > 0) return trimmed.slice(0, lastObj + 1) + ']'
   }
-
   return trimmed
 }
 
 function robustParse(raw: string): unknown {
   const text = stripFences(raw)
-
-  // Attempt 1: direct parse
   const r1 = tryParse(text)
   if (r1 !== null) return r1
-
-  // Attempt 2: apply all fixes then parse
   const r2 = tryParse(applyFixes(text))
   if (r2 !== null) return r2
-
-  // Attempt 3: repair truncated JSON (model hit max_tokens)
   const repaired = repairTruncated(applyFixes(text))
   const r3 = tryParse(repaired)
-  if (r3 !== null) {
-    console.log('[DiagramStudio] Repaired truncated JSON successfully')
-    return r3
-  }
-
-  // Attempt 4: extract the first [...] or {...} block
+  if (r3 !== null) return r3
   const block = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/)
   if (block) {
     const r4 = tryParse(block[0])
     if (r4 !== null) return r4
-
     const r5 = tryParse(applyFixes(block[0]))
     if (r5 !== null) return r5
   }
-
   return null
 }
 
-function freshIds(elements: object[]): object[] {
-  // Build old→new ID mapping
-  const idMap = new Map<string, string>()
-  for (const el of elements) {
+// ─── Element processing ──────────────────────────────────────────────────────
+
+interface CameraUpdate {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+function processElements(rawElements: object[]): {
+  elements: object[]
+  camera: CameraUpdate | null
+} {
+  // Extract cameraUpdate pseudo-elements
+  let camera: CameraUpdate | null = null
+  const drawElements: object[] = []
+
+  for (const el of rawElements) {
     const e = el as Record<string, unknown>
-    const oldId = e.id as string
-    if (oldId) idMap.set(oldId, nanoid(8))
+    // Fix standalone text visibility on dark canvas
+    if (e.type === 'text') {
+      const sc = e.strokeColor as string | undefined
+      if (!sc || sc === '#1e1e1e' || sc === 'transparent') {
+        e.strokeColor = '#e5e5e5'
+      }
+    }
+    if (e.type === 'cameraUpdate') {
+      camera = {
+        x: (e.x as number) || 0,
+        y: (e.y as number) || 0,
+        width: (e.width as number) || 800,
+        height: (e.height as number) || 600,
+      }
+    } else if (e.type === 'delete') {
+      // Skip delete pseudo-elements
+    } else {
+      drawElements.push(e)
+    }
   }
 
-  return elements.map((el) => {
-    const e = el as Record<string, unknown>
-    const oldId = e.id as string
-    const newId = idMap.get(oldId) ?? nanoid(8)
-
-    // Remap containerId for text elements
-    let containerId = e.containerId as string | null
-    if (containerId && idMap.has(containerId)) {
-      containerId = idMap.get(containerId)!
-    }
-
-    // Remap boundElements array
-    let boundElements = e.boundElements as Array<{ id: string; type: string }> | null
-    if (Array.isArray(boundElements)) {
-      boundElements = boundElements.map((be) => ({
-        ...be,
-        id: idMap.get(be.id) ?? be.id,
-      }))
-    }
-
-    // Remap arrow bindings
-    let startBinding = e.startBinding as { elementId: string } | null
-    if (startBinding?.elementId && idMap.has(startBinding.elementId)) {
-      startBinding = { ...startBinding, elementId: idMap.get(startBinding.elementId)! }
-    }
-    let endBinding = e.endBinding as { elementId: string } | null
-    if (endBinding?.elementId && idMap.has(endBinding.elementId)) {
-      endBinding = { ...endBinding, elementId: idMap.get(endBinding.elementId)! }
-    }
-
-    // Fix invisible text: ensure text elements have a visible strokeColor
-    let strokeColor = e.strokeColor as string | undefined
-    if (e.type === 'text' && (!strokeColor || strokeColor === 'transparent')) {
-      strokeColor = '#F5F5F5'
-    }
-
-    return {
-      ...e,
-      id: newId,
-      strokeColor: strokeColor ?? e.strokeColor,
-      containerId,
-      boundElements: boundElements ?? [],
-      startBinding: startBinding ?? null,
-      endBinding: endBinding ?? null,
-      version: 1,
-      versionNonce: Math.floor(Math.random() * 2147483647),
-      updated: Date.now(),
-      isDeleted: false,
-      locked: false,
-      seed: Math.floor(Math.random() * 2147483647),
-      groupIds: e.groupIds ?? [],
-      frameId: e.frameId ?? null,
-      link: e.link ?? null,
-      opacity: e.opacity ?? 100,
-      angle: e.angle ?? 0,
-      fillStyle: e.fillStyle ?? 'solid',
-      strokeWidth: e.strokeWidth ?? 2,
-      strokeStyle: e.strokeStyle ?? 'solid',
-      roughness: e.roughness ?? 0,
-      roundness: e.roundness ?? null,
-    }
-  })
+  // Convert simplified elements to proper Excalidraw elements
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const converted = convertToExcalidrawElements(drawElements as any, { regenerateIds: true })
+    return { elements: converted, camera }
+  } catch (err) {
+    console.warn('[DiagramStudio] convertToExcalidrawElements failed, using raw elements:', err)
+    return { elements: drawElements, camera }
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -282,6 +199,7 @@ export interface GenerateUsage {
 
 export interface DiagramResult {
   elements: object[]
+  camera: CameraUpdate | null
   usage: GenerateUsage
 }
 
@@ -307,29 +225,23 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
   }
 
   const text = response.content.find((b) => b.type === 'text')?.text ?? ''
-
-  if (!text) {
-    throw new Error('API returned no text content.')
-  }
+  if (!text) throw new Error('API returned no text content.')
 
   const parsed = robustParse(text)
 
-  // Model sometimes returns {elements:[...]} instead of bare [...] — handle both
+  // Extract elements array
   let rawEls: object[] | null = null
   if (Array.isArray(parsed)) {
     rawEls = parsed as object[]
   } else if (parsed && typeof parsed === 'object') {
     const obj = parsed as Record<string, unknown>
-    if (Array.isArray(obj.elements)) {
-      rawEls = obj.elements as object[]
-    } else if (Array.isArray(obj.diagram)) {
-      rawEls = obj.diagram as object[]
-    } else {
-      // Try to find any array property
+    for (const key of ['elements', 'diagram']) {
+      if (Array.isArray(obj[key])) { rawEls = obj[key] as object[]; break }
+    }
+    if (!rawEls) {
       for (const key of Object.keys(obj)) {
         if (Array.isArray(obj[key]) && (obj[key] as unknown[]).length > 0) {
           rawEls = obj[key] as object[]
-          // found elements under a custom key
           break
         }
       }
@@ -337,11 +249,14 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
   }
 
   if (!rawEls) {
-    throw new Error('Could not parse the diagram. Try a simpler prompt.')
+    throw new Error('Could not parse diagram. Try a simpler prompt.')
   }
 
+  const { elements, camera } = processElements(rawEls)
+
   return {
-    elements: freshIds(rawEls),
+    elements,
+    camera,
     usage: {
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
@@ -368,13 +283,10 @@ export async function generateSeries(
 
   for (let i = 0; i < count; i++) {
     const prevContext = slides.length > 0
-      ? `\nPrevious slides: ${slides.map((r, j) => `Slide ${j + 1}: "${r.title}"`).join(', ')}. Continue the narrative naturally.`
-      : '\nThis is the opening slide — provide an overview.'
+      ? `\nPrevious slides: ${slides.map((r, j) => `Slide ${j + 1}: "${r.title}"`).join(', ')}. Continue the narrative.`
+      : '\nThis is the opening slide.'
 
-    const userMsg =
-      `Create slide ${i + 1} of ${count} in a series about: "${prompt}"${prevContext}
-
-Respond ONLY with: {"title":"Short title (2-5 words)","elements":[...]}`
+    const userMsg = `Create slide ${i + 1} of ${count} about: "${prompt}"${prevContext}\nRespond ONLY with: {"title":"...","elements":[...]}`
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -390,9 +302,8 @@ Respond ONLY with: {"title":"Short title (2-5 words)","elements":[...]}`
     const parsed = robustParse(text) as { title?: string; elements?: object[] } | null
 
     const title = parsed?.title ?? `Slide ${i + 1}`
-    // elements may be in parsed.elements (object format) or parsed itself (array fallback)
     const rawEls = parsed?.elements ?? (Array.isArray(parsed) ? (parsed as object[]) : [])
-    const elements = freshIds(rawEls as object[])
+    const { elements } = processElements(rawEls as object[])
 
     onProgress?.(i + 1, count, title)
     slides.push({ title, elements })

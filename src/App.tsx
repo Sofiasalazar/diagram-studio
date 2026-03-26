@@ -5,7 +5,7 @@ import { DiagramCanvas } from './components/DiagramCanvas'
 import { PromptBar } from './components/PromptBar'
 import { useDiagrams } from './hooks/useDiagrams'
 import { generateDiagram, generateSeries } from './lib/generate'
-import type { GenerateUsage } from './lib/generate'
+import type { GenerateUsage, DiagramResult } from './lib/generate'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
@@ -42,6 +42,57 @@ export default function App() {
     excalidrawApiRef.current = api
   }, [])
 
+  function applyCamera(api: ExcalidrawImperativeAPI, result: DiagramResult) {
+    const container = document.querySelector('.excalidraw')
+    const cw = container?.clientWidth || 1280
+    const ch = container?.clientHeight || 720
+
+    let camX: number, camY: number, camW: number, camH: number
+
+    if (result.camera) {
+      // Use model-specified camera with 20% extra padding
+      camW = result.camera.width * 1.2
+      camH = result.camera.height * 1.2
+      camX = result.camera.x - result.camera.width * 0.1
+      camY = result.camera.y - result.camera.height * 0.1
+    } else {
+      // Fallback: calculate from element bounds
+      const els = api.getSceneElements()
+      if (els.length === 0) return
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const el of els) {
+        const e = el as unknown as { x: number; y: number; width: number; height: number; points?: number[][] }
+        minX = Math.min(minX, e.x)
+        minY = Math.min(minY, e.y)
+        maxX = Math.max(maxX, e.x + Math.abs(e.width || 0))
+        maxY = Math.max(maxY, e.y + Math.abs(e.height || 0))
+        if (e.points) for (const [px, py] of e.points) {
+          maxX = Math.max(maxX, e.x + px)
+          maxY = Math.max(maxY, e.y + py)
+        }
+      }
+      const pad = 80
+      camX = minX - pad
+      camY = minY - pad
+      camW = (maxX - minX) + pad * 2
+      camH = (maxY - minY) + pad * 2
+    }
+
+    const zoom = Math.min(cw / camW, ch / camH, 1.2)
+    const camCenterX = camX + camW / 2
+    const camCenterY = camY + camH / 2
+
+    api.updateScene({
+      appState: {
+        zoom: { value: zoom as unknown as number & { _brand: 'normalizedZoom' } },
+        scrollX: cw / 2 / zoom - camCenterX,
+        scrollY: ch / 2 / zoom - camCenterY,
+        viewBackgroundColor: '#111111',
+        zenModeEnabled: false,
+      },
+    })
+  }
+
   async function handleGenerate(prompt: string) {
     setGenerating(true)
     try {
@@ -50,76 +101,14 @@ export default function App() {
 
       const api = excalidrawApiRef.current
       if (api) {
-        // Push directly to canvas — no React state cycle, no timing issues
         const existing = api.getSceneElements() as ExcalidrawElement[]
         const merged = existing.length > 0 ? [...existing, ...newElements] : newElements
-        api.updateScene({
-          elements: merged,
-          appState: { viewBackgroundColor: '#111111', zenModeEnabled: false },
-        })
-        // Zoom to fit: manual calculation using actual container dimensions
-        const zoomToFit = () => {
-          const els = api.getSceneElements()
-          if (els.length === 0) return
-
-          // Calculate bounding box (handle arrows with points)
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-          for (const el of els) {
-            const e = el as unknown as {
-              x: number; y: number; width: number; height: number;
-              points?: number[][];
-            }
-            const w = Math.abs(e.width || 0)
-            const h = Math.abs(e.height || 0)
-            minX = Math.min(minX, e.x, e.x + (e.width || 0))
-            minY = Math.min(minY, e.y, e.y + (e.height || 0))
-            maxX = Math.max(maxX, e.x + w, e.x)
-            maxY = Math.max(maxY, e.y + h, e.y)
-            // Arrow/line points extend from (x,y)
-            if (e.points) {
-              for (const [px, py] of e.points) {
-                minX = Math.min(minX, e.x + px)
-                minY = Math.min(minY, e.y + py)
-                maxX = Math.max(maxX, e.x + px)
-                maxY = Math.max(maxY, e.y + py)
-              }
-            }
-          }
-
-          // Use the .excalidraw container (respects wrapper constraints)
-          const container = document.querySelector('.excalidraw')
-          const cw = container?.clientWidth || 1280
-          const ch = container?.clientHeight || 720
-          const contentW = maxX - minX
-          const contentH = maxY - minY
-          // Extra generous padding: 25% of content size + fixed 60px
-          const paddingX = Math.max(contentW * 0.25, 60) + 60
-          const paddingY = Math.max(contentH * 0.15, 40) + 40
-
-          const zoom = Math.min(
-            cw / (contentW + paddingX * 2),
-            ch / (contentH + paddingY * 2),
-            1.0
-          )
-
-          const centerX = minX + contentW / 2
-          const centerY = minY + contentH / 2
-
-          api.updateScene({
-            appState: {
-              zoom: { value: zoom },
-              scrollX: cw / 2 / zoom - centerX,
-              scrollY: ch / 2 / zoom - centerY,
-              viewBackgroundColor: '#111111',
-            },
-          })
-        }
-        setTimeout(zoomToFit, 300)
-        setTimeout(zoomToFit, 1000)
-        // Also persist to state so tab switching restores the diagram
+        api.updateScene({ elements: merged })
+        // Apply camera framing from the model's cameraUpdate
+        setTimeout(() => applyCamera(api, result), 300)
+        setTimeout(() => applyCamera(api, result), 1000)
         updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
       } else {
-        // API not ready (rare) — fall back to state only
         updateDiagram(activeId, newElements, activeDiagram.appState, activeDiagram.files)
       }
 
