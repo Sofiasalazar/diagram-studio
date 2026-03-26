@@ -29,7 +29,10 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
       container!.querySelectorAll<HTMLElement>(
         '.welcome-screen, [class*="welcome-screen"], ' +
         '.App-toolbar, .App-toolbar-content, .App-toolbar-container, ' +
-        '.shapes-section, .App-menu_top, .App-bottom-bar'
+        '.shapes-section, .App-menu_top, .App-bottom-bar, ' +
+        '.context-menu-container, .excalidraw-contextMenuContainer, ' +
+        '[class*="context-menu"], .zen-mode-transition, .disable-zen-mode, ' +
+        '.layer-ui__wrapper__footer'
       ).forEach((el) => { el.style.display = 'none' })
     }
     hide()
@@ -52,6 +55,8 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
   const initialAppState = {
     ...diagram.appState,
     theme: 'dark' as const,
+    viewBackgroundColor: '#111111',
+    zenModeEnabled: false,
     activeTool: {
       type: 'hand' as const,
       customType: null,

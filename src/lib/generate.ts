@@ -21,7 +21,8 @@ COLOR PALETTE — use these for backgroundColor to create visual zones:
 - Neutral/gray boxes: "#1c1917" with strokeColor "#44403c"
 - Decision diamonds: "#fefce8" with strokeColor "#ca8a04"
 - Arrows/lines: strokeColor "#6b7280", backgroundColor "transparent"
-- Text-only elements: backgroundColor "transparent", strokeColor "transparent"
+- Text-only elements: backgroundColor "transparent", strokeColor "#F5F5F5" (white text for dark canvas)
+- Text INSIDE colored shapes: strokeColor "#1e1e1e" (dark text on light backgrounds)
 
 Required fields for EVERY element:
 - id: unique 8-char alphanumeric string
@@ -50,9 +51,10 @@ For "text" elements, also add:
 - fontFamily: 1
 - textAlign: "center"
 - verticalAlign: "middle"
-- containerId: null
+- containerId: null (ALWAYS null -- never bind text to shapes)
 - originalText: "same as text"
 - lineHeight: 1.25
+IMPORTANT: Place text elements as SEPARATE, STANDALONE elements positioned visually on top of shapes. Do NOT use containerId to bind text to shapes.
 
 For "arrow" or "line" elements, also add:
 - points: [[0,0],[dx,dy]] where dx/dy describe the direction and length
@@ -199,20 +201,65 @@ function robustParse(raw: string): unknown {
 }
 
 function freshIds(elements: object[]): object[] {
+  // Build old→new ID mapping
+  const idMap = new Map<string, string>()
+  for (const el of elements) {
+    const e = el as Record<string, unknown>
+    const oldId = e.id as string
+    if (oldId) idMap.set(oldId, nanoid(8))
+  }
+
   return elements.map((el) => {
     const e = el as Record<string, unknown>
+    const oldId = e.id as string
+    const newId = idMap.get(oldId) ?? nanoid(8)
+
+    // Remap containerId for text elements
+    let containerId = e.containerId as string | null
+    if (containerId && idMap.has(containerId)) {
+      containerId = idMap.get(containerId)!
+    }
+
+    // Remap boundElements array
+    let boundElements = e.boundElements as Array<{ id: string; type: string }> | null
+    if (Array.isArray(boundElements)) {
+      boundElements = boundElements.map((be) => ({
+        ...be,
+        id: idMap.get(be.id) ?? be.id,
+      }))
+    }
+
+    // Remap arrow bindings
+    let startBinding = e.startBinding as { elementId: string } | null
+    if (startBinding?.elementId && idMap.has(startBinding.elementId)) {
+      startBinding = { ...startBinding, elementId: idMap.get(startBinding.elementId)! }
+    }
+    let endBinding = e.endBinding as { elementId: string } | null
+    if (endBinding?.elementId && idMap.has(endBinding.elementId)) {
+      endBinding = { ...endBinding, elementId: idMap.get(endBinding.elementId)! }
+    }
+
+    // Fix invisible text: ensure text elements have a visible strokeColor
+    let strokeColor = e.strokeColor as string | undefined
+    if (e.type === 'text' && (!strokeColor || strokeColor === 'transparent')) {
+      strokeColor = '#F5F5F5'
+    }
+
     return {
       ...e,
-      id: nanoid(8),
+      id: newId,
+      strokeColor: strokeColor ?? e.strokeColor,
+      containerId,
+      boundElements: boundElements ?? [],
+      startBinding: startBinding ?? null,
+      endBinding: endBinding ?? null,
       version: 1,
       versionNonce: Math.floor(Math.random() * 2147483647),
       updated: Date.now(),
       isDeleted: false,
       locked: false,
       seed: Math.floor(Math.random() * 2147483647),
-      // Ensure required defaults
       groupIds: e.groupIds ?? [],
-      boundElements: e.boundElements ?? [],
       frameId: e.frameId ?? null,
       link: e.link ?? null,
       opacity: e.opacity ?? 100,
@@ -259,18 +306,13 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
     throw new Error(`API error: ${msg}`)
   }
 
-  // Debug: log all content blocks
-  console.log('[DiagramStudio] Content blocks:', response.content.map((b: { type: string }) => b.type))
   const text = response.content.find((b) => b.type === 'text')?.text ?? ''
-  console.log('[DiagramStudio] Raw text length:', text.length)
-  console.log('[DiagramStudio] Raw text (first 500):', text.slice(0, 500))
 
   if (!text) {
-    throw new Error('API returned no text content. Content types: ' + response.content.map((b: { type: string }) => b.type).join(', '))
+    throw new Error('API returned no text content.')
   }
 
   const parsed = robustParse(text)
-  console.log('[DiagramStudio] Parsed result type:', parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed)
 
   // Model sometimes returns {elements:[...]} instead of bare [...] — handle both
   let rawEls: object[] | null = null
@@ -287,7 +329,7 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
       for (const key of Object.keys(obj)) {
         if (Array.isArray(obj[key]) && (obj[key] as unknown[]).length > 0) {
           rawEls = obj[key] as object[]
-          console.log('[DiagramStudio] Found elements under key:', key)
+          // found elements under a custom key
           break
         }
       }
@@ -295,10 +337,8 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
   }
 
   if (!rawEls) {
-    console.error('[DiagramStudio] Parse failed. Raw text:', text)
-    throw new Error('Parse failed. First 200 chars: ' + text.slice(0, 200))
+    throw new Error('Could not parse the diagram. Try a simpler prompt.')
   }
-  console.log('[DiagramStudio] Extracted', rawEls.length, 'elements')
 
   return {
     elements: freshIds(rawEls),

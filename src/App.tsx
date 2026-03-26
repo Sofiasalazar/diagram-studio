@@ -53,8 +53,25 @@ export default function App() {
         // Push directly to canvas — no React state cycle, no timing issues
         const existing = api.getSceneElements() as ExcalidrawElement[]
         const merged = existing.length > 0 ? [...existing, ...newElements] : newElements
-        api.updateScene({ elements: merged })
-        setTimeout(() => api.scrollToContent(undefined, { fitToContent: true, animate: true }), 150)
+        api.updateScene({
+          elements: merged,
+          appState: { viewBackgroundColor: '#111111', zenModeEnabled: false },
+        })
+        // Zoom to fit all elements using Excalidraw's native method
+        const zoomToFit = () => {
+          const els = api.getSceneElements()
+          if (els.length === 0) return
+          // Use fitToViewport which zooms and centers properly
+          api.scrollToContent(els, {
+            fitToViewport: true,
+            viewportZoomFactor: 0.7,
+            animate: false,
+          })
+        }
+        // Multiple attempts with increasing delays
+        setTimeout(zoomToFit, 200)
+        setTimeout(zoomToFit, 800)
+        setTimeout(zoomToFit, 1500)
         // Also persist to state so tab switching restores the diagram
         updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
       } else {
