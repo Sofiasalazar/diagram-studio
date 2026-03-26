@@ -42,25 +42,28 @@ export default function App() {
     excalidrawApiRef.current = api
   }, [])
 
-  function applyCamera(api: ExcalidrawImperativeAPI, result: DiagramResult) {
+  // Calculate viewport appState from camera or element bounds
+  function calcViewport(
+    elements: readonly ExcalidrawElement[],
+    camera: DiagramResult['camera'],
+  ): Partial<AppState> {
+    // Use last known container size or reasonable default
     const container = document.querySelector('.excalidraw')
-    const cw = container?.clientWidth || 1280
-    const ch = container?.clientHeight || 720
+    const cw = container?.clientWidth || 1100
+    const ch = container?.clientHeight || 600
 
     let camX: number, camY: number, camW: number, camH: number
 
-    if (result.camera) {
-      // Use model-specified camera with 40% extra padding to prevent clipping
-      camW = result.camera.width * 1.4
-      camH = result.camera.height * 1.4
-      camX = result.camera.x - result.camera.width * 0.2
-      camY = result.camera.y - result.camera.height * 0.2
+    if (camera) {
+      // Model-specified camera with 40% padding
+      camW = camera.width * 1.4
+      camH = camera.height * 1.4
+      camX = camera.x - camera.width * 0.2
+      camY = camera.y - camera.height * 0.2
     } else {
-      // Fallback: calculate from element bounds
-      const els = api.getSceneElements()
-      if (els.length === 0) return
+      // Calculate from element bounds
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const el of els) {
+      for (const el of elements) {
         const e = el as unknown as { x: number; y: number; width: number; height: number; points?: number[][] }
         minX = Math.min(minX, e.x)
         minY = Math.min(minY, e.y)
@@ -71,26 +74,24 @@ export default function App() {
           maxY = Math.max(maxY, e.y + py)
         }
       }
-      const pad = 80
+      const pad = 100
       camX = minX - pad
       camY = minY - pad
       camW = (maxX - minX) + pad * 2
       camH = (maxY - minY) + pad * 2
     }
 
-    const zoom = Math.min(cw / camW, ch / camH, 1.2)
-    const camCenterX = camX + camW / 2
-    const camCenterY = camY + camH / 2
+    const zoom = Math.min(cw / camW, ch / camH, 1.0)
+    const centerX = camX + camW / 2
+    const centerY = camY + camH / 2
 
-    api.updateScene({
-      appState: {
-        zoom: { value: zoom as unknown as number & { _brand: 'normalizedZoom' } },
-        scrollX: cw / 2 / zoom - camCenterX,
-        scrollY: ch / 2 / zoom - camCenterY,
-        viewBackgroundColor: '#ffffff',
-        zenModeEnabled: false,
-      },
-    })
+    return {
+      zoom: { value: zoom } as AppState['zoom'],
+      scrollX: (cw / 2 / zoom - centerX) as AppState['scrollX'],
+      scrollY: (ch / 2 / zoom - centerY) as AppState['scrollY'],
+      viewBackgroundColor: '#ffffff',
+      zenModeEnabled: false,
+    }
   }
 
   async function handleGenerate(prompt: string) {
@@ -99,18 +100,13 @@ export default function App() {
       const result = await generateDiagram(prompt, apiKey)
       const newElements = result.elements as ExcalidrawElement[]
 
-      const api = excalidrawApiRef.current
-      if (api) {
-        const existing = api.getSceneElements() as ExcalidrawElement[]
-        const merged = existing.length > 0 ? [...existing, ...newElements] : newElements
-        api.updateScene({ elements: merged })
-        // Apply camera framing from the model's cameraUpdate
-        setTimeout(() => applyCamera(api, result), 300)
-        setTimeout(() => applyCamera(api, result), 1000)
-        updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
-      } else {
-        updateDiagram(activeId, newElements, activeDiagram.appState, activeDiagram.files)
-      }
+      // Pre-calculate viewport so it's embedded in initialData on remount
+      const viewport = calcViewport(newElements, result.camera)
+
+      // Create a NEW tab with elements + viewport baked in
+      // Excalidraw remounts via key={diagram.id} with correct framing from initialData
+      const tabName = prompt.slice(0, 30).trim() || 'Diagram'
+      addDiagramWithContent(tabName, newElements, viewport)
 
       setSessionUsage((prev) => ({
         input_tokens: prev.input_tokens + result.usage.input_tokens,

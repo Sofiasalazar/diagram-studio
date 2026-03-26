@@ -208,6 +208,23 @@ export interface SeriesResult {
   usage: GenerateUsage
 }
 
+// Tool schema for structured output
+const DIAGRAM_TOOL = {
+  name: 'create_diagram',
+  description: 'Create an Excalidraw diagram with elements and camera framing',
+  input_schema: {
+    type: 'object' as const,
+    required: ['elements'],
+    properties: {
+      elements: {
+        type: 'array',
+        description: 'Array of Excalidraw elements (shapes, arrows, text, cameraUpdate)',
+        items: { type: 'object' },
+      },
+    },
+  },
+}
+
 export async function generateDiagram(prompt: string, apiKey: string): Promise<DiagramResult> {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
 
@@ -218,38 +235,42 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
       max_tokens: 16384,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
+      tools: [DIAGRAM_TOOL],
+      tool_choice: { type: 'tool', name: 'create_diagram' },
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(`API error: ${msg}`)
   }
 
-  const text = response.content.find((b) => b.type === 'text')?.text ?? ''
-  if (!text) throw new Error('API returned no text content.')
-
-  const parsed = robustParse(text)
-
-  // Extract elements array
+  // Extract elements from tool_use block (structured output)
   let rawEls: object[] | null = null
-  if (Array.isArray(parsed)) {
-    rawEls = parsed as object[]
-  } else if (parsed && typeof parsed === 'object') {
-    const obj = parsed as Record<string, unknown>
-    for (const key of ['elements', 'diagram']) {
-      if (Array.isArray(obj[key])) { rawEls = obj[key] as object[]; break }
+  const toolUse = response.content.find((b) => b.type === 'tool_use')
+  if (toolUse && toolUse.type === 'tool_use') {
+    const input = toolUse.input as Record<string, unknown>
+    if (Array.isArray(input.elements)) {
+      rawEls = input.elements as object[]
     }
-    if (!rawEls) {
-      for (const key of Object.keys(obj)) {
-        if (Array.isArray(obj[key]) && (obj[key] as unknown[]).length > 0) {
-          rawEls = obj[key] as object[]
-          break
+  }
+
+  // Fallback: try parsing text content (in case model doesn't use tool)
+  if (!rawEls) {
+    const text = response.content.find((b) => b.type === 'text')?.text ?? ''
+    if (text) {
+      const parsed = robustParse(text)
+      if (Array.isArray(parsed)) {
+        rawEls = parsed as object[]
+      } else if (parsed && typeof parsed === 'object') {
+        const obj = parsed as Record<string, unknown>
+        for (const key of ['elements', 'diagram']) {
+          if (Array.isArray(obj[key])) { rawEls = obj[key] as object[]; break }
         }
       }
     }
   }
 
   if (!rawEls) {
-    throw new Error('Could not parse diagram. Try a simpler prompt.')
+    throw new Error('Could not generate diagram. Try a simpler prompt.')
   }
 
   const { elements, camera } = processElements(rawEls)

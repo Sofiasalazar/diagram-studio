@@ -29,9 +29,14 @@ export function useDiagrams() {
 
   const addDiagramWithContent = useCallback((
     name: string,
-    elements: readonly ExcalidrawElement[]
+    elements: readonly ExcalidrawElement[],
+    appState?: Partial<AppState>,
   ) => {
-    const d: DiagramTab = { id: nanoid(), name, elements, appState: { theme: 'dark' }, files: {} }
+    const d: DiagramTab = {
+      id: nanoid(), name, elements,
+      appState: { theme: 'light', viewBackgroundColor: '#ffffff', ...appState },
+      files: {},
+    }
     setTabs((prev) => [...prev, d])
     setActiveId(d.id)
     return d.id
