@@ -57,21 +57,65 @@ export default function App() {
           elements: merged,
           appState: { viewBackgroundColor: '#111111', zenModeEnabled: false },
         })
-        // Zoom to fit all elements using Excalidraw's native method
+        // Zoom to fit: manual calculation using actual container dimensions
         const zoomToFit = () => {
           const els = api.getSceneElements()
           if (els.length === 0) return
-          // Use fitToViewport which zooms and centers properly
-          api.scrollToContent(els, {
-            fitToViewport: true,
-            viewportZoomFactor: 0.7,
-            animate: false,
+
+          // Calculate bounding box (handle arrows with points)
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+          for (const el of els) {
+            const e = el as unknown as {
+              x: number; y: number; width: number; height: number;
+              points?: number[][];
+            }
+            const w = Math.abs(e.width || 0)
+            const h = Math.abs(e.height || 0)
+            minX = Math.min(minX, e.x, e.x + (e.width || 0))
+            minY = Math.min(minY, e.y, e.y + (e.height || 0))
+            maxX = Math.max(maxX, e.x + w, e.x)
+            maxY = Math.max(maxY, e.y + h, e.y)
+            // Arrow/line points extend from (x,y)
+            if (e.points) {
+              for (const [px, py] of e.points) {
+                minX = Math.min(minX, e.x + px)
+                minY = Math.min(minY, e.y + py)
+                maxX = Math.max(maxX, e.x + px)
+                maxY = Math.max(maxY, e.y + py)
+              }
+            }
+          }
+
+          // Use the .excalidraw container (respects wrapper constraints)
+          const container = document.querySelector('.excalidraw')
+          const cw = container?.clientWidth || 1280
+          const ch = container?.clientHeight || 720
+          const contentW = maxX - minX
+          const contentH = maxY - minY
+          // Extra generous padding: 25% of content size + fixed 60px
+          const paddingX = Math.max(contentW * 0.25, 60) + 60
+          const paddingY = Math.max(contentH * 0.15, 40) + 40
+
+          const zoom = Math.min(
+            cw / (contentW + paddingX * 2),
+            ch / (contentH + paddingY * 2),
+            1.0
+          )
+
+          const centerX = minX + contentW / 2
+          const centerY = minY + contentH / 2
+
+          api.updateScene({
+            appState: {
+              zoom: { value: zoom },
+              scrollX: cw / 2 / zoom - centerX,
+              scrollY: ch / 2 / zoom - centerY,
+              viewBackgroundColor: '#111111',
+            },
           })
         }
-        // Multiple attempts with increasing delays
-        setTimeout(zoomToFit, 200)
-        setTimeout(zoomToFit, 800)
-        setTimeout(zoomToFit, 1500)
+        setTimeout(zoomToFit, 300)
+        setTimeout(zoomToFit, 1000)
         // Also persist to state so tab switching restores the diagram
         updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
       } else {
