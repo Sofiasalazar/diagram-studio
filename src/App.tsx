@@ -5,7 +5,7 @@ import { DiagramCanvas } from './components/DiagramCanvas'
 import { PromptBar } from './components/PromptBar'
 import { useDiagrams } from './hooks/useDiagrams'
 import { generateDiagram, generateSeries } from './lib/generate'
-import type { GenerateUsage, DiagramResult } from './lib/generate'
+import type { GenerateUsage } from './lib/generate'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
@@ -40,59 +40,14 @@ export default function App() {
 
   const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
     excalidrawApiRef.current = api
-  }, [])
-
-  // Calculate viewport appState from camera or element bounds
-  function calcViewport(
-    elements: readonly ExcalidrawElement[],
-    camera: DiagramResult['camera'],
-  ): Partial<AppState> {
-    // Use last known container size or reasonable default
-    const container = document.querySelector('.excalidraw')
-    const cw = container?.clientWidth || 1100
-    const ch = container?.clientHeight || 600
-
-    let camX: number, camY: number, camW: number, camH: number
-
-    if (camera) {
-      // Model-specified camera with 40% padding
-      camW = camera.width * 1.4
-      camH = camera.height * 1.4
-      camX = camera.x - camera.width * 0.2
-      camY = camera.y - camera.height * 0.2
-    } else {
-      // Calculate from element bounds
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const el of elements) {
-        const e = el as unknown as { x: number; y: number; width: number; height: number; points?: number[][] }
-        minX = Math.min(minX, e.x)
-        minY = Math.min(minY, e.y)
-        maxX = Math.max(maxX, e.x + Math.abs(e.width || 0))
-        maxY = Math.max(maxY, e.y + Math.abs(e.height || 0))
-        if (e.points) for (const [px, py] of e.points) {
-          maxX = Math.max(maxX, e.x + px)
-          maxY = Math.max(maxY, e.y + py)
-        }
+    // After mount, zoom to fit content if there are elements
+    setTimeout(() => {
+      const els = api.getSceneElements()
+      if (els.length > 0) {
+        api.scrollToContent(els, { fitToViewport: true, viewportZoomFactor: 0.85, animate: false })
       }
-      const pad = 100
-      camX = minX - pad
-      camY = minY - pad
-      camW = (maxX - minX) + pad * 2
-      camH = (maxY - minY) + pad * 2
-    }
-
-    const zoom = Math.min(cw / camW, ch / camH, 1.0)
-    const centerX = camX + camW / 2
-    const centerY = camY + camH / 2
-
-    return {
-      zoom: { value: zoom } as AppState['zoom'],
-      scrollX: (cw / 2 / zoom - centerX) as AppState['scrollX'],
-      scrollY: (ch / 2 / zoom - centerY) as AppState['scrollY'],
-      viewBackgroundColor: '#ffffff',
-      zenModeEnabled: false,
-    }
-  }
+    }, 100)
+  }, [])
 
   async function handleGenerate(prompt: string) {
     setGenerating(true)
@@ -100,13 +55,9 @@ export default function App() {
       const result = await generateDiagram(prompt, apiKey)
       const newElements = result.elements as ExcalidrawElement[]
 
-      // Pre-calculate viewport so it's embedded in initialData on remount
-      const viewport = calcViewport(newElements, result.camera)
-
-      // Create a NEW tab with elements + viewport baked in
-      // Excalidraw remounts via key={diagram.id} with correct framing from initialData
+      // Create a new tab -- Excalidraw will scroll-to-content on mount
       const tabName = prompt.slice(0, 30).trim() || 'Diagram'
-      addDiagramWithContent(tabName, newElements, viewport)
+      addDiagramWithContent(tabName, newElements)
 
       setSessionUsage((prev) => ({
         input_tokens: prev.input_tokens + result.usage.input_tokens,

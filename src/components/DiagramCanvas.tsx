@@ -96,6 +96,7 @@ export function DiagramCanvas({ diagram, dimension, onUpdate, onApiReady }: Prop
             elements: diagram.elements as ExcalidrawElement[],
             appState: initialAppState,
             files: diagram.files,
+            scrollToContent: diagram.elements.length > 0,
           }}
           onChange={handleChange}
           theme="light"
