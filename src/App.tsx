@@ -5,7 +5,7 @@ import { DiagramCanvas } from './components/DiagramCanvas'
 import { PromptBar } from './components/PromptBar'
 import { useDiagrams } from './hooks/useDiagrams'
 import { generateDiagram, generateSeries } from './lib/generate'
-import type { GenerateUsage, DiagramResult } from './lib/generate'
+import type { GenerateUsage } from './lib/generate'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types'
@@ -40,58 +40,14 @@ export default function App() {
 
   const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
     excalidrawApiRef.current = api
-  }, [])
-
-  function applyCamera(api: ExcalidrawImperativeAPI, result: DiagramResult) {
-    const container = document.querySelector('.excalidraw')
-    const cw = container?.clientWidth || 1280
-    const ch = container?.clientHeight || 720
-
-    let camX: number, camY: number, camW: number, camH: number
-
-    if (result.camera) {
-      // Use model-specified camera with 40% extra padding to prevent clipping
-      camW = result.camera.width * 1.4
-      camH = result.camera.height * 1.4
-      camX = result.camera.x - result.camera.width * 0.2
-      camY = result.camera.y - result.camera.height * 0.2
-    } else {
-      // Fallback: calculate from element bounds
+    // After mount, zoom to fit content if there are elements
+    setTimeout(() => {
       const els = api.getSceneElements()
-      if (els.length === 0) return
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const el of els) {
-        const e = el as unknown as { x: number; y: number; width: number; height: number; points?: number[][] }
-        minX = Math.min(minX, e.x)
-        minY = Math.min(minY, e.y)
-        maxX = Math.max(maxX, e.x + Math.abs(e.width || 0))
-        maxY = Math.max(maxY, e.y + Math.abs(e.height || 0))
-        if (e.points) for (const [px, py] of e.points) {
-          maxX = Math.max(maxX, e.x + px)
-          maxY = Math.max(maxY, e.y + py)
-        }
+      if (els.length > 0) {
+        api.scrollToContent(els, { fitToViewport: true, viewportZoomFactor: 0.85, animate: false })
       }
-      const pad = 80
-      camX = minX - pad
-      camY = minY - pad
-      camW = (maxX - minX) + pad * 2
-      camH = (maxY - minY) + pad * 2
-    }
-
-    const zoom = Math.min(cw / camW, ch / camH, 1.2)
-    const camCenterX = camX + camW / 2
-    const camCenterY = camY + camH / 2
-
-    api.updateScene({
-      appState: {
-        zoom: { value: zoom as unknown as number & { _brand: 'normalizedZoom' } },
-        scrollX: cw / 2 / zoom - camCenterX,
-        scrollY: ch / 2 / zoom - camCenterY,
-        viewBackgroundColor: '#ffffff',
-        zenModeEnabled: false,
-      },
-    })
-  }
+    }, 100)
+  }, [])
 
   async function handleGenerate(prompt: string) {
     setGenerating(true)
@@ -99,18 +55,9 @@ export default function App() {
       const result = await generateDiagram(prompt, apiKey)
       const newElements = result.elements as ExcalidrawElement[]
 
-      const api = excalidrawApiRef.current
-      if (api) {
-        const existing = api.getSceneElements() as ExcalidrawElement[]
-        const merged = existing.length > 0 ? [...existing, ...newElements] : newElements
-        api.updateScene({ elements: merged })
-        // Apply camera framing from the model's cameraUpdate
-        setTimeout(() => applyCamera(api, result), 300)
-        setTimeout(() => applyCamera(api, result), 1000)
-        updateDiagram(activeId, merged, activeDiagram.appState, activeDiagram.files)
-      } else {
-        updateDiagram(activeId, newElements, activeDiagram.appState, activeDiagram.files)
-      }
+      // Create a new tab -- Excalidraw will scroll-to-content on mount
+      const tabName = prompt.slice(0, 30).trim() || 'Diagram'
+      addDiagramWithContent(tabName, newElements)
 
       setSessionUsage((prev) => ({
         input_tokens: prev.input_tokens + result.usage.input_tokens,
