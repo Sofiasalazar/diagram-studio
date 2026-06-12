@@ -231,7 +231,7 @@ export async function generateDiagram(prompt: string, apiKey: string): Promise<D
   let response
   try {
     response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 16384,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
@@ -310,7 +310,7 @@ export async function generateSeries(
     const userMsg = `Create slide ${i + 1} of ${count} about: "${prompt}"${prevContext}\nRespond ONLY with: {"title":"...","elements":[...]}`
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 16384,
       system: SLIDE_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMsg }],
